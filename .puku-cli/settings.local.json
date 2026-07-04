@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm install:*)",
+      "Bash(pnpm config:*)",
+      "Bash(pnpm rebuild:*)",
+      "Bash(pnpm exec:*)",
+      "Bash(pnpm add:*)",
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Bash(echo \"exit=$?\")",
+      "Bash(node_modules/.bin/tsc -p tsconfig.json)",
+      "Bash(node -e \"require\\(''''./dist/app.js''''\\)\")",
+      "Bash(node -e \"require\\(''''tsconfig-paths/register''''\\); require\\(''''./dist/app.js''''\\)\")",
+      "Bash(node -e \"process.chdir\\(''''/home/hridoy/STA/dameesco/dameesco-backend''''\\); require\\(''''tsconfig-paths/register''''\\); require\\(''''./dist/app.js''''\\); console.log\\(''''OK''''\\);\")",
+      "Bash(node -r tsconfig-paths/register -e \"console.log\\(require.resolve\\(''''@/config/env.config''''\\)\\)\")",
+      "Bash(node:*)",
+      "Bash(TS_NODE_PROJECT=./tsconfig.json node -r tsconfig-paths/register -e \"console.log\\(require.resolve\\(''''@/config/env.config''''\\)\\)\")",
+      "Bash(node -r ./tsconfig-paths-bootstrap.js -e \"console.log\\(require.resolve\\(''''@/config/env.config''''\\)\\)\")",
+      "Bash(node -r ./tsconfig-paths-bootstrap.js -e \"console.log\\(''''hi''''\\)\")",
+      "Bash(pnpm run:*)",
+      "Bash(cat EOF auto-install-peers=true enable-pre-post-scripts=true EOF pnpm config set onlyBuiltDependencies [\"\"bcrypt\"\"])",
+      "Bash(pnpm approve-builds:*)",
+      "Bash(1:*)",
+      "Bash(ls node_modules/.pnpm/bcrypt*/node_modules/bcrypt/)",
+      "Bash(ls node_modules/.pnpm/bcrypt*/node_modules/bcrypt/lib/binding/)",
+      "Bash(npm run:*)",
+      "Bash(.env:*)",
+      "Bash(echo \"tsc=$?\")",
+      "Bash(echo \"build=$?\")"
+    ]
+  }
+}
