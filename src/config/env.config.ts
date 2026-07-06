@@ -44,6 +44,11 @@ const env = {
   AWS_S3_BUCKET_NAME: optional('AWS_S3_BUCKET_NAME', ''),
   AWS_S3_PUBLIC_BUCKET_URL: optional('AWS_S3_PUBLIC_BUCKET_URL', ''),
 
+  RESEND_API_KEY: optional('RESEND_API_KEY', ''),
+  RESEND_FROM_NAME: optional('RESEND_FROM_NAME', 'SUNAR'),
+  RESEND_FROM_EMAIL: optional('RESEND_FROM_EMAIL', 'no-reply@sunarmusic.ai'),
+  RESEND_FROM: optional('RESEND_FROM', ''),
+
   SMTP_HOST: optional('SMTP_HOST', 'smtp.gmail.com'),
   SMTP_PORT: parseInt(optional('SMTP_PORT', '587'), 10),
   SMTP_USER: optional('SMTP_USER', ''),

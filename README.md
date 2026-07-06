@@ -10,7 +10,7 @@ A production-ready REST API for the **Dameesco** music/audio platform. Users can
 - **JWT** auth (access + refresh) and **Bcrypt** hashing
 - **Zod** for request validation
 - **AWS S3** for audio/image/file storage
-- **Gmail SMTP** via **Nodemailer** for transactional email
+- **Resend** for transactional email
 - **Multer** for uploads
 - **FFmpeg** (via `fluent-ffmpeg`) for audio processing & watermark generation
 - **Swagger / OpenAPI** for API documentation
@@ -37,7 +37,7 @@ src/
     access-requests/     # manual paid access requests
     notifications/       # in-app notifications
     admin/               # dashboard, aggregated admin routes
-    email/               # Nodemailer + templates
+    email/               # Resend sender + email templates
   storage/s3.service.ts  # AWS S3 wrapper
   audio/                 # FFmpeg watermark + metadata services
   routes/index.ts        # v1 router aggregator
@@ -94,7 +94,8 @@ See `.env.example`. Highlights:
 - `MONGODB_URI`
 - `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `JWT_ACCESS_EXPIRES_IN`, `JWT_REFRESH_EXPIRES_IN`
 - `AWS_*` for S3 access
-- `SMTP_*` for Gmail SMTP (use a Gmail **app password**)
+- `RESEND_API_KEY` for email delivery via Resend
+- `RESEND_FROM` or `RESEND_FROM_NAME` + `RESEND_FROM_EMAIL` for the sender identity
 - `FFMPEG_PATH` — absolute path to the FFmpeg binary
 - `WATERMARK_AUDIO_PATH` — path to a short audio tag used as the watermark source. If missing, the system falls back to a generated sine tone.
 - `ADMIN_EMAIL`, `ADMIN_PASSWORD` — used by `pnpm seed:admin`
@@ -225,10 +226,11 @@ Error:
 - Configure `AWS_*` env vars.
 - Cover images are stored as public-read; all audio is served via **signed URLs** so original audio is never publicly exposed.
 
-## Notes on Gmail SMTP
+## Notes on Email Delivery
 
-- Create a Gmail **App Password** (requires 2FA on the account).
-- Set `SMTP_USER` and `SMTP_PASS` to that app password. `SMTP_FROM` is the "from" header shown to recipients.
+- The active email provider is **Resend**.
+- Set `RESEND_API_KEY` and use a **verified Resend domain** for `RESEND_FROM`.
+- The legacy Nodemailer/SMTP config remains in the codebase but is not used by the current sender.
 
 ## Roadmap / Pluggable Hooks
 

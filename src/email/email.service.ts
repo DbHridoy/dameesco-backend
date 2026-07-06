@@ -1,4 +1,3 @@
-import { getMailTransporter } from '@/config/mail.config';
 import env from '@/config/env.config';
 import logger from '@/config/logger.config';
 import {
@@ -14,19 +13,41 @@ import {
   AccessRequestDecisionEmail,
 } from './email.templates';
 
+const RESEND_API_URL = 'https://api.resend.com/emails';
+
+const getResendFrom = (): string => {
+  if (env.RESEND_FROM) return env.RESEND_FROM;
+  return `${env.RESEND_FROM_NAME} <${env.RESEND_FROM_EMAIL}>`;
+};
+
 const send = async (
   to: string,
   subject: string,
   html: string,
 ): Promise<void> => {
   try {
-    const transporter = getMailTransporter();
-    await transporter.sendMail({
-      from: env.SMTP_FROM,
-      to,
-      subject,
-      html,
+    if (!env.RESEND_API_KEY) {
+      throw new Error('RESEND_API_KEY is not configured');
+    }
+
+    const response = await fetch(RESEND_API_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: getResendFrom(),
+        to: [to],
+        subject,
+        html,
+      }),
     });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(`Resend request failed: ${response.status} ${errorBody}`);
+    }
   } catch (error) {
     logger.error(
       { error: error instanceof Error ? error.message : error, to, subject },
