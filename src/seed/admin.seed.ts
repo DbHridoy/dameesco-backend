@@ -14,11 +14,17 @@ const seedAdmin = async (): Promise<void> => {
     const existing = await User.findOne({ email });
     if (existing) {
       logger.info(`Admin user already exists: ${email}`);
+      existing.password = await bcrypt.hash(
+        env.ADMIN_PASSWORD,
+        env.BCRYPT_SALT_ROUNDS,
+      );
       if (existing.role !== USER_ROLES.ADMIN) {
         existing.role = USER_ROLES.ADMIN;
-        await existing.save();
         logger.info(`Promoted existing user to ADMIN: ${email}`);
       }
+      existing.emailVerified = true;
+      await existing.save();
+      logger.info(`Admin credentials synced: ${email}`);
       await disconnectDB();
       return;
     }

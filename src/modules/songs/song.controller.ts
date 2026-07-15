@@ -62,6 +62,18 @@ export const featuredSongs = asyncHandler(async (req, res: Response) => {
   res.status(200).json(new ApiResponse('Featured songs', { songs }));
 });
 
+export const getAssetUrl = asyncHandler(async (req, res: Response) => {
+  const id = req.params.id!;
+  ensureValidObjectId(id, 'songId');
+  const requestedType = req.query.type;
+  const type =
+    requestedType === 'download' || requestedType === 'watermarked'
+      ? requestedType
+      : 'preview';
+  const asset = await songService.getAdminSongAssetUrl(id, type);
+  res.status(200).json(new ApiResponse('Song asset URL generated', asset));
+});
+
 export const uploadAudio = asyncHandler(async (req, res: Response) => {
   const id = req.params.id!;
   ensureValidObjectId(id, 'songId');

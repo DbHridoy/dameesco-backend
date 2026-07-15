@@ -16,14 +16,21 @@ export interface WatermarkOptions {
   outputPath: string;
   watermarkAudioPath?: string;
   /**
-   * How often to repeat the watermark overlay, in seconds.
-   * The watermark sound will be mixed in at this interval throughout the song.
+   * Deprecated. Watermarks are now mixed only once.
    */
   intervalSeconds?: number;
   /**
    * Volume of the watermark relative to the original (0.0 - 1.0).
    */
   watermarkVolume?: number;
+  /**
+   * Delay before the one-time watermark starts, in seconds.
+   */
+  watermarkDelaySeconds?: number;
+  /**
+   * Original track volume while the watermark is playing (0.0 - 1.0).
+   */
+  watermarkDuckVolume?: number;
 }
 
 export interface AudioDurationResult {
@@ -40,8 +47,8 @@ const ffprobeDuration = (filePath: string): Promise<number> => {
 };
 
 /**
- * Generates an audible watermarked version of an audio file by overlaying a
- * short watermark tone at regular intervals using FFmpeg's `amix` filter.
+ * Generates an audible watermarked version of an audio file by overlaying one
+ * watermark audio clip using FFmpeg's `amix` filter.
  *
  * This implementation is intentionally isolated so it can be swapped later
  * (e.g. for Cyanite or a more advanced DSP pipeline) without touching callers.
@@ -53,8 +60,15 @@ export const generateWatermarkedAudio = async (
   const outputPath = options.outputPath;
   const watermarkPath =
     options.watermarkAudioPath ?? env.WATERMARK_AUDIO_PATH;
-  const watermarkVolume = options.watermarkVolume ?? 0.15;
-  const intervalSeconds = options.intervalSeconds ?? 30;
+  const watermarkVolume = options.watermarkVolume ?? 2;
+  const watermarkDelayMs = Math.max(
+    0,
+    Math.round((options.watermarkDelaySeconds ?? env.WATERMARK_DELAY_SECONDS) * 1000),
+  );
+  const watermarkDuckVolume = Math.min(
+    1,
+    Math.max(0, options.watermarkDuckVolume ?? env.WATERMARK_DUCK_VOLUME),
+  );
 
   if (!fs.existsSync(inputPath)) {
     throw new ApiError(400, 'Original audio file not found');
@@ -68,28 +82,37 @@ export const generateWatermarkedAudio = async (
 
   const hasWatermarkAudio =
     !!watermarkPath && fs.existsSync(watermarkPath);
+  const watermarkDurationSeconds = hasWatermarkAudio
+    ? Math.max(0.5, await getAudioDuration(watermarkPath))
+    : 0.5;
+  const watermarkStartSeconds = watermarkDelayMs / 1000;
+  const watermarkEndSeconds = watermarkStartSeconds + watermarkDurationSeconds;
+  const duckOriginalFilter =
+    `[0:a]volume=if(between(t\\,${watermarkStartSeconds}\\,${watermarkEndSeconds})\\,${watermarkDuckVolume}\\,1)[music]`;
 
   return new Promise<string>((resolve, reject) => {
     let command = ffmpeg(inputPath);
 
     if (hasWatermarkAudio) {
-      // Overlay the watermark audio, looping it over the entire duration of the original.
+      // Overlay the watermark audio once after the configured delay.
       command = command
         .input(watermarkPath)
         .complexFilter([
-          `[1:a]aloop=loop=-1:size=1e9,atrim=0:${intervalSeconds * 5}[wm]`,
-          `[0:a][wm]amix=inputs=2:duration=first:dropout_transition=0,volume=${watermarkVolume}[mix]`,
+          duckOriginalFilter,
+          `[1:a]volume=${watermarkVolume},adelay=${watermarkDelayMs}:all=1[wm]`,
+          '[music][wm]amix=inputs=2:duration=first:dropout_transition=0[mix]',
         ])
         .outputOptions(['-map [mix]']);
     } else {
       logger.warn(
-        'Watermark audio not found at WATERMARK_AUDIO_PATH — applying periodic beeps via sine tone instead.',
+        'Watermark audio not found at WATERMARK_AUDIO_PATH — applying a single beep tone instead.',
       );
       const sineFreq = 880;
       command = command
         .complexFilter([
-          `aevalsrc='sin(${sineFreq}*2*PI*t)*if(lt(mod(t,${intervalSeconds}),0.5),1,0)':d=0.3[sine]`,
-          `[0:a][sine]amix=inputs=2:duration=first:dropout_transition=0,volume=${watermarkVolume}[mix]`,
+          duckOriginalFilter,
+          `sine=frequency=${sineFreq}:duration=0.5,volume=${watermarkVolume},adelay=${watermarkDelayMs}:all=1[sine]`,
+          '[music][sine]amix=inputs=2:duration=first:dropout_transition=0[mix]',
         ])
         .outputOptions(['-map [mix]']);
     }

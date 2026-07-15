@@ -40,6 +40,46 @@ export const authenticate = (
   }
 };
 
+export const optionalAuthenticate = (
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+): void => {
+  try {
+    const header = req.headers.authorization;
+    if (!header) {
+      next();
+      return;
+    }
+    if (!header.startsWith('Bearer ')) {
+      throw new ApiError(401, 'Invalid authorization header');
+    }
+
+    const token = header.split(' ')[1];
+    if (!token) {
+      throw new ApiError(401, 'Invalid authorization header');
+    }
+
+    const decoded = verifyAccessToken(token);
+    if (!decoded?.id || !isValidObjectId(decoded.id)) {
+      throw new ApiError(401, 'Invalid token payload');
+    }
+
+    req.user = {
+      id: decoded.id,
+      role: decoded.role as 'USER' | 'ADMIN',
+      email: decoded.email,
+    };
+    next();
+  } catch (error) {
+    if (error instanceof ApiError) {
+      next(error);
+      return;
+    }
+    next(new ApiError(401, 'Invalid or expired token'));
+  }
+};
+
 export const requireAdmin = (
   req: Request,
   _res: Response,

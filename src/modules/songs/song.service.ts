@@ -211,6 +211,55 @@ export const listFeatured = async (
   return songs;
 };
 
+export const getAdminSongAssetUrl = async (
+  songId: string,
+  type: 'preview' | 'download' | 'watermarked',
+): Promise<{ url: string; fileType: 'preview' | 'original' | 'watermarked' }> => {
+  ensureValidObjectId(songId, 'songId');
+  const song = await Song.findById(songId);
+  if (!song) throw new ApiError(404, 'Song not found');
+
+  if (type === 'preview') {
+    const key = song.previewAudioKey ?? song.watermarkedAudioKey ?? song.originalAudioKey;
+    if (!key) throw new ApiError(400, 'No preview audio is available for this song');
+    const fileType = song.previewAudioKey
+      ? 'preview'
+      : song.watermarkedAudioKey
+        ? 'watermarked'
+        : 'original';
+    return {
+      url: await getSignedDownloadUrl(key, 900),
+      fileType,
+    };
+  }
+
+  if (type === 'watermarked') {
+    const key = song.watermarkedAudioKey ?? song.previewAudioKey ?? song.originalAudioKey;
+    if (!key) throw new ApiError(400, 'No watermarked audio is available for this song');
+    const fileType = song.watermarkedAudioKey
+      ? 'watermarked'
+      : song.previewAudioKey
+        ? 'preview'
+        : 'original';
+    return {
+      url: await getSignedDownloadUrl(key, 900),
+      fileType,
+    };
+  }
+
+  const key = song.originalAudioKey ?? song.watermarkedAudioKey ?? song.previewAudioKey;
+  if (!key) throw new ApiError(400, 'No downloadable audio is available for this song');
+  const fileType = song.originalAudioKey
+    ? 'original'
+    : song.watermarkedAudioKey
+      ? 'watermarked'
+      : 'preview';
+  return {
+    url: await getSignedDownloadUrl(key, 900),
+    fileType,
+  };
+};
+
 export const setStatus = async (
   id: string,
   status: keyof typeof SONG_STATUS,

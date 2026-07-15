@@ -40,6 +40,14 @@ export const createAccessRequest = async (
     throw new ApiError(400, 'You already have paid access');
   }
 
+  const pendingRequest = await AccessRequest.findOne({
+    user: user._id,
+    status: ACCESS_REQUEST_STATUS.PENDING,
+  });
+  if (pendingRequest) {
+    throw new ApiError(409, 'You already have a pending subscription request');
+  }
+
   let paymentProofKey: string | undefined;
   let paymentProofUrl: string | undefined;
 

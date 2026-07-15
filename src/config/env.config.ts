@@ -60,6 +60,8 @@ const env = {
     'WATERMARK_AUDIO_PATH',
     './assets/watermark.wav',
   ),
+  WATERMARK_DELAY_SECONDS: parseFloat(optional('WATERMARK_DELAY_SECONDS', '10')),
+  WATERMARK_DUCK_VOLUME: parseFloat(optional('WATERMARK_DUCK_VOLUME', '0')),
 } as const;
 
 export default env;

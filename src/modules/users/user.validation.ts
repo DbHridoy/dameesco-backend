@@ -12,7 +12,8 @@ const objectIdSchema = z
 export const updateProfileSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   phone: z.string().trim().optional(),
-  avatar: z.string().url().optional(),
+  avatar: z.string().max(2_000_000).optional(),
+  address: z.string().trim().max(500).optional(),
 });
 
 export const changePasswordSchema = z.object({

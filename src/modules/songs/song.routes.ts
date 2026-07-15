@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticate } from '@/middleware/auth.middleware';
+import { authenticate, optionalAuthenticate } from '@/middleware/auth.middleware';
 import { authorizeRoles } from '@/middleware/role.middleware';
 import { validate } from '@/middleware/validate.middleware';
 import { uploadAudio, uploadImage } from '@/middleware/upload.middleware';
@@ -19,6 +19,7 @@ const router = Router();
 // Public/user routes
 router.get(
   '/',
+  optionalAuthenticate,
   validate(listSongsQuerySchema, 'query'),
   songController.listSongs,
 );
@@ -64,6 +65,14 @@ router.delete(
   authorizeRoles(USER_ROLES.ADMIN),
   validate(songIdParamSchema, 'params'),
   songController.deleteSong,
+);
+
+router.get(
+  '/:id/asset-url',
+  authenticate,
+  authorizeRoles(USER_ROLES.ADMIN),
+  validate(songIdParamSchema, 'params'),
+  songController.getAssetUrl,
 );
 
 router.post(

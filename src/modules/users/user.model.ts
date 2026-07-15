@@ -15,6 +15,7 @@ export interface UserDocument extends Document {
   role: UserRole;
   avatar?: string;
   phone?: string;
+  address?: string;
   status: UserStatus;
   emailVerified: boolean;
   subscriptionStatus: SubscriptionStatus;
@@ -63,6 +64,7 @@ const userSchema = new Schema<UserDocument, UserModel>(
     },
     avatar: { type: String },
     phone: { type: String, trim: true },
+    address: { type: String, trim: true, maxlength: 500 },
     status: {
       type: String,
       enum: Object.values(USER_STATUS),
