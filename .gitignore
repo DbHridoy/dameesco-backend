@@ -5,6 +5,7 @@ node_modules/
 # Pnpm
 .npmrc
 pnpm-workspace.yaml
+pnpm-lock.yaml
 
 # Build output
 dist/
