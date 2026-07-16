@@ -1,4 +1,4 @@
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { FilterQuery } from 'mongoose';
 import User, { UserDocument } from './user.model';
 import { ApiError } from '@/utils/ApiError';

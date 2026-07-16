@@ -1,4 +1,4 @@
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import User, { UserDocument } from '@/modules/users/user.model';
 import { ApiError } from '@/utils/ApiError';
 import env from '@/config/env.config';
