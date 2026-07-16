@@ -5,6 +5,7 @@ import env from '@/config/env.config';
 import {
   generateAccessToken,
   generateRefreshToken,
+  verifyRefreshToken,
 } from '@/utils/generateToken';
 import { generateOtp } from '@/utils/generateOtp';
 import { USER_STATUS } from '@/constants/user-status';
@@ -13,6 +14,7 @@ import {
   ChangePasswordInput,
   ForgotPasswordInput,
   LoginInput,
+  RefreshTokenInput,
   RegisterInput,
   ResetPasswordInput,
 } from './auth.validation';
@@ -73,6 +75,26 @@ export const login = async (
   }
   const ok = await bcrypt.compare(payload.password, user.password);
   if (!ok) throw new ApiError(401, 'Invalid email or password');
+
+  const tokens = buildTokens(user);
+  return { user, tokens };
+};
+
+export const refreshToken = async (
+  payload: RefreshTokenInput,
+): Promise<{ user: UserDocument; tokens: AuthTokens }> => {
+  let decoded;
+  try {
+    decoded = verifyRefreshToken(payload.refreshToken);
+  } catch {
+    throw new ApiError(401, 'Invalid or expired refresh token');
+  }
+
+  const user = await User.findById(decoded.id);
+  if (!user) throw new ApiError(401, 'Invalid refresh token');
+  if (user.status === USER_STATUS.BLOCKED) {
+    throw new ApiError(403, 'Your account is blocked. Contact support.');
+  }
 
   const tokens = buildTokens(user);
   return { user, tokens };

@@ -7,6 +7,7 @@ import {
   ChangePasswordInput,
   ForgotPasswordInput,
   LoginInput,
+  RefreshTokenInput,
   RegisterInput,
   ResetPasswordInput,
 } from './auth.validation';
@@ -27,6 +28,14 @@ export const login = asyncHandler(async (req, res: Response) => {
   res
     .status(200)
     .json(new ApiResponse('Login successful', { user, ...tokens }));
+});
+
+export const refreshToken = asyncHandler(async (req, res: Response) => {
+  const payload = req.body as RefreshTokenInput;
+  const { user, tokens } = await authService.refreshToken(payload);
+  res
+    .status(200)
+    .json(new ApiResponse('Token refreshed', { user, ...tokens }));
 });
 
 export const getMe = asyncHandler(async (req, res: Response) => {
