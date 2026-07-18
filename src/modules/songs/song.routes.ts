@@ -36,6 +36,12 @@ router.get(
 );
 
 router.get(
+  '/:id/preview-url',
+  validate(songIdParamSchema, 'params'),
+  songController.getPreviewAssetUrl,
+);
+
+router.get(
   '/:idOrSlug',
   validate(idOrSlugParamSchema, 'params'),
   songController.getSong,

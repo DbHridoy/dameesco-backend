@@ -260,6 +260,32 @@ export const getAdminSongAssetUrl = async (
   };
 };
 
+export const getPublicSongPreviewUrl = async (
+  songId: string,
+): Promise<{ url: string; fileType: 'preview' | 'watermarked' | 'original'; expiresIn: number }> => {
+  ensureValidObjectId(songId, 'songId');
+  const song = await Song.findOne({
+    _id: songId,
+    status: SONG_STATUS.PUBLISHED,
+  });
+  if (!song) throw new ApiError(404, 'Song not found');
+
+  const key = song.previewAudioKey ?? song.watermarkedAudioKey ?? song.originalAudioKey;
+  if (!key) throw new ApiError(400, 'No preview audio is available for this song');
+
+  const fileType = song.previewAudioKey
+    ? 'preview'
+    : song.watermarkedAudioKey
+      ? 'watermarked'
+      : 'original';
+
+  return {
+    url: await getSignedDownloadUrl(key, 900),
+    fileType,
+    expiresIn: 900,
+  };
+};
+
 export const setStatus = async (
   id: string,
   status: keyof typeof SONG_STATUS,

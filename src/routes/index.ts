@@ -9,6 +9,7 @@ import accessRequestRoutes from '@/modules/access-requests/access-request.routes
 import adminRoutes from '@/modules/admin/admin.routes';
 import notificationRoutes from '@/modules/notifications/notification.routes';
 import webhookRoutes from '@/modules/webhooks/webhook.routes';
+import videoSyncRoutes from '@/modules/video-sync/video-sync.routes';
 import { ApiResponse } from '@/utils/ApiResponse';
 
 const router = Router();
@@ -29,5 +30,6 @@ router.use('/access-requests', accessRequestRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/admin', adminRoutes);
 router.use('/webhooks', webhookRoutes);
+router.use('/video-sync', videoSyncRoutes);
 
 export default router;

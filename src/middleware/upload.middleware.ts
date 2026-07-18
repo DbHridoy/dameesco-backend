@@ -85,6 +85,25 @@ const documentFileFilter = (
   }
 };
 
+const videoFileFilter = (
+  _req: Request,
+  file: Express.Multer.File,
+  cb: FileFilterCallback,
+): void => {
+  const allowedMime = [
+    'video/mp4',
+    'video/quicktime',
+    'video/webm',
+    'video/x-msvideo',
+  ];
+  const allowedExt = /\.(mp4|mov|webm|avi)$/i;
+  if (allowedMime.includes(file.mimetype) || allowedExt.test(file.originalname)) {
+    cb(null, true);
+  } else {
+    cb(new ApiError(400, 'Only video files are allowed'));
+  }
+};
+
 export const uploadAudio = multer({
   storage,
   fileFilter: audioFileFilter,
@@ -101,4 +120,10 @@ export const uploadDocument = multer({
   storage,
   fileFilter: documentFileFilter,
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+});
+
+export const uploadVideo = multer({
+  storage,
+  fileFilter: videoFileFilter,
+  limits: { fileSize: 500 * 1024 * 1024 }, // 500MB
 });

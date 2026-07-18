@@ -74,6 +74,13 @@ export const getAssetUrl = asyncHandler(async (req, res: Response) => {
   res.status(200).json(new ApiResponse('Song asset URL generated', asset));
 });
 
+export const getPreviewAssetUrl = asyncHandler(async (req, res: Response) => {
+  const id = req.params.id!;
+  ensureValidObjectId(id, 'songId');
+  const asset = await songService.getPublicSongPreviewUrl(id);
+  res.status(200).json(new ApiResponse('Song preview URL generated', asset));
+});
+
 export const uploadAudio = asyncHandler(async (req, res: Response) => {
   const id = req.params.id!;
   ensureValidObjectId(id, 'songId');
