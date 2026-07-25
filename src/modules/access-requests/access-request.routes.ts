@@ -28,7 +28,7 @@ export default router;
 export const adminAccessRequestRouter = Router();
 adminAccessRequestRouter.use(
   authenticate,
-  authorizeRoles(USER_ROLES.ADMIN),
+  authorizeRoles(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
 );
 
 adminAccessRequestRouter.get('/', accessController.listAllRequests);

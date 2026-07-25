@@ -5,6 +5,7 @@ import { ensureValidObjectId } from '@/utils/sanitizeQuery';
 import * as userService from './user.service';
 import {
   ChangePasswordInput,
+  CreateAdminInput,
   ListUsersQueryInput,
   UpdateProfileInput,
   UpdateSubscriptionInput,
@@ -39,6 +40,12 @@ export const changePassword = asyncHandler(async (req, res: Response) => {
 });
 
 // Admin endpoints
+
+export const createAdmin = asyncHandler(async (req, res: Response) => {
+  const payload = req.body as CreateAdminInput;
+  const user = await userService.createAdmin(payload);
+  res.status(201).json(new ApiResponse('Admin created', { user }));
+});
 
 export const listUsers = asyncHandler(async (req, res: Response) => {
   const query = req.query as unknown as ListUsersQueryInput;

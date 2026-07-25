@@ -168,6 +168,34 @@ export const generatePreviewAudio = async (
   });
 };
 
+export const transcodeToMp3 = async (
+  inputPath: string,
+  outputPath: string,
+  bitrate: string = '192k',
+): Promise<string> => {
+  if (!fs.existsSync(inputPath)) {
+    throw new ApiError(400, 'Original audio file not found');
+  }
+
+  const outputDir = path.dirname(outputPath);
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
+
+  return new Promise<string>((resolve, reject) => {
+    ffmpeg(inputPath)
+      .audioCodec('libmp3lame')
+      .audioBitrate(bitrate)
+      .format('mp3')
+      .on('error', (err) => {
+        logger.error({ err }, 'MP3 transcode failed');
+        reject(new ApiError(500, `MP3 transcode failed: ${err.message}`));
+      })
+      .on('end', () => resolve(outputPath))
+      .save(outputPath);
+  });
+};
+
 export const getAudioDuration = async (
   filePath: string,
 ): Promise<number> => {

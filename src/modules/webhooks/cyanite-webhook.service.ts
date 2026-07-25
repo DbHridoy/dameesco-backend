@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import env from '@/config/env.config';
 import logger from '@/config/logger.config';
 import { ApiError } from '@/utils/ApiError';
+import * as songService from '@/modules/songs/song.service';
 
 interface CyaniteWebhookPayload {
   version?: string;
@@ -64,6 +65,18 @@ export const handleCyaniteWebhook = async ({
   signature,
 }: HandleCyaniteWebhookInput) => {
   const verified = verifySignature(rawBody, signature);
+  let songId: string | null = null;
+
+  const isLibraryTrackEvent =
+    typeof payload.resource?.type === 'string' &&
+    payload.resource.type.toLowerCase() === 'librarytrack';
+
+  if (verified && isLibraryTrackEvent && payload.resource?.id) {
+    const updatedSong = await songService.handleCyaniteAnalysisWebhook(
+      payload.resource.id,
+    );
+    songId = updatedSong?._id.toString() ?? null;
+  }
 
   logger.info(
     {
@@ -71,6 +84,7 @@ export const handleCyaniteWebhook = async ({
       version: payload.version,
       resource: payload.resource,
       event: payload.event,
+      songId,
     },
     'Cyanite webhook received',
   );
@@ -83,5 +97,6 @@ export const handleCyaniteWebhook = async ({
     resourceId: payload.resource?.id ?? null,
     eventType: payload.event?.type ?? null,
     eventStatus: payload.event?.status ?? null,
+    songId,
   };
 };

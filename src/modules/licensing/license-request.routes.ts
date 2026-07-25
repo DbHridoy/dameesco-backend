@@ -27,7 +27,10 @@ export default router;
 // Admin-specific routes
 export const adminLicenseRouter = Router();
 
-adminLicenseRouter.use(authenticate, authorizeRoles(USER_ROLES.ADMIN));
+adminLicenseRouter.use(
+  authenticate,
+  authorizeRoles(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
+);
 
 adminLicenseRouter.get(
   '/requests',

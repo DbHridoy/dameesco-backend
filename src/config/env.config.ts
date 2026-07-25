@@ -63,6 +63,7 @@ const env = {
   WATERMARK_DELAY_SECONDS: parseFloat(optional('WATERMARK_DELAY_SECONDS', '10')),
   WATERMARK_DUCK_VOLUME: parseFloat(optional('WATERMARK_DUCK_VOLUME', '0')),
 
+  CYANITE_API_KEY: optional('CYANITE_API_KEY', ''),
   CYANITE_WEBHOOK_SECRET: optional('CYANITE_WEBHOOK_SECRET', ''),
 } as const;
 

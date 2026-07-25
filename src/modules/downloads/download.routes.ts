@@ -17,13 +17,13 @@ router.post(
 router.get(
   '/',
   authenticate,
-  authorizeRoles(USER_ROLES.ADMIN),
+  authorizeRoles(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
   downloadController.listDownloads,
 );
 router.get(
   '/stats',
   authenticate,
-  authorizeRoles(USER_ROLES.ADMIN),
+  authorizeRoles(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
   downloadController.downloadStats,
 );
 

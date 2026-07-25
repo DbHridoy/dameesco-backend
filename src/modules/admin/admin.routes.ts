@@ -8,11 +8,14 @@ import { adminLicenseRouter } from '@/modules/licensing/license-request.routes';
 import { adminAccessRequestRouter } from '@/modules/access-requests/access-request.routes';
 import * as userController from '@/modules/users/user.controller';
 import { validate } from '@/middleware/validate.middleware';
-import { listUsersQuerySchema } from '@/modules/users/user.validation';
+import {
+  createAdminSchema,
+  listUsersQuerySchema,
+} from '@/modules/users/user.validation';
 
 const router = Router();
 
-router.use(authenticate, authorizeRoles(USER_ROLES.ADMIN));
+router.use(authenticate, authorizeRoles(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN));
 
 router.get('/dashboard', adminController.dashboard);
 router.get('/songs/stats', adminController.songStats);
@@ -22,6 +25,12 @@ router.get(
   '/users',
   validate(listUsersQuerySchema, 'query'),
   userController.listUsers,
+);
+router.post(
+  '/users/admins',
+  authorizeRoles(USER_ROLES.SUPER_ADMIN),
+  validate(createAdminSchema),
+  userController.createAdmin,
 );
 router.get('/users/:id', userController.getUser);
 router.patch('/users/:id/status', userController.updateUserStatus);

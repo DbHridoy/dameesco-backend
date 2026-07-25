@@ -18,10 +18,12 @@ import {
 } from '@/constants/subscription';
 import {
   ChangePasswordInput,
+  CreateAdminInput,
   ListUsersQueryInput,
   UpdateProfileInput,
   UpdateSubscriptionInput,
 } from './user.validation';
+import { USER_ROLES } from '@/constants/roles';
 
 const sanitizeUser = (user: UserDocument | null): UserDocument | null => {
   if (!user) return null;
@@ -59,6 +61,28 @@ export const changePassword = async (
 
   user.password = await bcrypt.hash(payload.newPassword, env.BCRYPT_SALT_ROUNDS);
   await user.save();
+};
+
+export const createAdmin = async (
+  payload: CreateAdminInput,
+): Promise<UserDocument> => {
+  const email = payload.email.toLowerCase().trim();
+  const existing = await User.findOne({ email });
+  if (existing) {
+    throw new ApiError(409, 'Email is already registered');
+  }
+
+  const hashed = await bcrypt.hash(payload.password, env.BCRYPT_SALT_ROUNDS);
+  const user = await User.create({
+    name: payload.name,
+    email,
+    password: hashed,
+    phone: payload.phone,
+    role: USER_ROLES.ADMIN,
+    emailVerified: true,
+  });
+
+  return sanitizeUser(user) as UserDocument;
 };
 
 export const updateUserStatus = async (

@@ -23,6 +23,7 @@ import {
   generateWatermarkedAudio,
   generatePreviewAudio,
   getAudioDuration,
+  transcodeToMp3,
 } from '@/audio/audio-watermark.service';
 import { extractAudioMetadata } from '@/audio/audio-metadata.service';
 import {
@@ -31,6 +32,14 @@ import {
   UpdateSongInput,
 } from './song.validation';
 import logger from '@/config/logger.config';
+import {
+  createLibraryTrack,
+  CyaniteAnalysisResult,
+  enqueueLibraryTrack,
+  getLibraryTrackAnalysis,
+  requestFileUpload,
+  uploadAudioToCyanite,
+} from '@/modules/ai-search/cyanite.service';
 
 interface UploadAudioResult {
   originalAudioKey: string;
@@ -42,6 +51,12 @@ interface UploadAudioResult {
   duration: number;
   fileSize: number;
   fileType: string;
+}
+
+interface CyaniteSubmissionResult {
+  libraryTrackId: string;
+  status: 'pending';
+  rawAnalysis: Record<string, unknown>;
 }
 
 const ensureUniqueSlug = async (base: string): Promise<string> => {
@@ -116,6 +131,156 @@ export const getSongByIdOrSlug = async (
 
 const isValidObjectIdLike = (s: string): boolean =>
   /^[a-fA-F0-9]{24}$/.test(s);
+
+const prettyTag = (value: string): string =>
+  value
+    .replace(/_/g, ' ')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
+const uniqueStrings = (values: Array<string | undefined | null>): string[] => {
+  const seen = new Set<string>();
+  return values
+    .map((value) => (typeof value === 'string' ? prettyTag(value) : ''))
+    .filter((value) => {
+      if (!value || seen.has(value.toLowerCase())) return false;
+      seen.add(value.toLowerCase());
+      return true;
+    });
+};
+
+const extractFreeGenreTags = (value?: string | null): string[] => {
+  if (!value) return [];
+  return value
+    .split(/[,;|]/)
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+};
+
+const mapCyaniteAnalysisToSongFields = (
+  result: CyaniteAnalysisResult,
+): Partial<Pick<SongDocument, 'bpm' | 'key' | 'genre' | 'mood' | 'tags'>> => {
+  const genreTags = uniqueStrings([
+    ...(result.genreTags ?? []),
+    ...(result.advancedGenreTags ?? []),
+    ...(result.subgenreTags ?? []),
+    ...(result.advancedSubgenreTags ?? []),
+    ...extractFreeGenreTags(result.freeGenreTags),
+  ]);
+  const moodTags = uniqueStrings([
+    ...(result.moodTags ?? []),
+    ...(result.moodAdvancedTags ?? []),
+  ]);
+  const descriptiveTags = uniqueStrings([
+    ...genreTags,
+    ...moodTags,
+    ...(result.characterTags ?? []),
+    ...(result.instrumentTags ?? []),
+    ...(result.advancedInstrumentTags ?? []),
+    ...(result.advancedInstrumentTagsExtended ?? []),
+    ...(result.voiceTags ?? []),
+    ...(result.movementTags ?? []),
+    result.energyLevel,
+    result.energyDynamics,
+    result.emotionalDynamics,
+    result.emotionalProfile,
+    result.musicalEraTag,
+    result.voicePresenceProfile,
+  ]);
+
+  return {
+    bpm: result.bpmPrediction?.value
+      ? Math.round(result.bpmPrediction.value)
+      : undefined,
+    key: result.keyPrediction?.value ? prettyTag(result.keyPrediction.value) : undefined,
+    genre: genreTags[0],
+    mood: moodTags[0],
+    tags: descriptiveTags.slice(0, 30),
+  };
+};
+
+const applyDefinedSongFields = (
+  song: SongDocument,
+  fields: Partial<Pick<SongDocument, 'bpm' | 'key' | 'genre' | 'mood' | 'tags'>>,
+) => {
+  if (fields.bpm) song.bpm = fields.bpm;
+  if (fields.key) song.key = fields.key;
+  if (fields.genre) song.genre = fields.genre;
+  if (fields.mood) song.mood = fields.mood;
+  if (fields.tags?.length) song.tags = fields.tags;
+};
+
+const submitLocalAudioToCyanite = async ({
+  song,
+  inputPath,
+  duration,
+}: {
+  song: SongDocument;
+  inputPath: string;
+  duration: number;
+}): Promise<CyaniteSubmissionResult> => {
+  if (duration > 15 * 60) {
+    throw new ApiError(422, 'Cyanite API uploads support tracks up to 15 minutes');
+  }
+
+  const tmpCyanite = path.join(
+    path.dirname(inputPath),
+    `${path.basename(inputPath, path.extname(inputPath))}-cyanite.mp3`,
+  );
+
+  try {
+    await transcodeToMp3(inputPath, tmpCyanite, '192k');
+    const uploadRequest = await requestFileUpload();
+    await uploadAudioToCyanite(uploadRequest.uploadUrl, fs.readFileSync(tmpCyanite));
+    const libraryTrack = await createLibraryTrack({
+      uploadId: uploadRequest.id,
+      title: song.title,
+      externalId: song._id.toString(),
+    });
+
+    return {
+      libraryTrackId: libraryTrack.id,
+      status: 'pending',
+      rawAnalysis: {
+        submittedAt: new Date().toISOString(),
+        enqueueStatus: libraryTrack.enqueueStatus,
+      },
+    };
+  } finally {
+    fs.unlink(tmpCyanite, () => undefined);
+  }
+};
+
+const downloadOriginalAudioToTmp = async (song: SongDocument): Promise<string> => {
+  if (!song.originalAudioKey) {
+    throw new ApiError(400, 'No original audio uploaded for this song');
+  }
+
+  const { Readable } = await import('stream');
+  const { pipeline } = await import('stream/promises');
+  const originalUrl = await getSignedDownloadUrl(song.originalAudioKey, 300);
+  const response = await fetch(originalUrl);
+
+  if (!response.ok || !response.body) {
+    throw new ApiError(500, 'Failed to fetch original audio');
+  }
+
+  const tmpDir = path.resolve(process.cwd(), 'tmp');
+  if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+  const tmpIn = path.join(tmpDir, `${song.slug}-cyanite-source-${Date.now()}.mp3`);
+
+  await pipeline(
+    Readable.fromWeb(
+      response.body as unknown as import('stream/web').ReadableStream,
+    ),
+    fs.createWriteStream(tmpIn),
+  );
+
+  return tmpIn;
+};
 
 export const listPublishedSongs = async (
   query: ListSongsQueryInput,
@@ -364,6 +529,8 @@ export const uploadAndProcessAudio = async (
   );
 
   let processed: UploadAudioResult;
+  let cyaniteSubmission: CyaniteSubmissionResult | null = null;
+  let cyaniteError: string | null = null;
   try {
     // 1. Generate watermarked version locally
     await generateWatermarkedAudio({
@@ -424,6 +591,18 @@ export const uploadAndProcessAudio = async (
       fileSize: file.size,
       fileType: file.mimetype,
     };
+
+    try {
+      cyaniteSubmission = await submitLocalAudioToCyanite({
+        song,
+        inputPath: tmpInput,
+        duration,
+      });
+    } catch (error) {
+      cyaniteError =
+        error instanceof Error ? error.message : 'Cyanite submission failed';
+      logger.warn({ error: cyaniteError, songId }, 'Cyanite auto tagging submission failed');
+    }
   } catch (error) {
     logger.error(
       { error: error instanceof Error ? error.message : error, songId },
@@ -459,9 +638,109 @@ export const uploadAndProcessAudio = async (
   song.duration = processed.duration || song.duration;
   song.fileSize = processed.fileSize;
   song.fileType = processed.fileType;
+  if (cyaniteSubmission) {
+    song.cyaniteLibraryTrackId = cyaniteSubmission.libraryTrackId;
+    song.cyaniteAnalysisStatus = cyaniteSubmission.status;
+    song.cyaniteRawAnalysis = cyaniteSubmission.rawAnalysis;
+  } else if (cyaniteError) {
+    song.cyaniteAnalysisStatus = 'failed';
+    song.cyaniteRawAnalysis = {
+      error: cyaniteError,
+      failedAt: new Date().toISOString(),
+    };
+  }
   await song.save();
 
   return song;
+};
+
+export const refreshCyaniteAnalysisForSong = async (
+  song: SongDocument,
+): Promise<SongDocument> => {
+  if (!song.cyaniteLibraryTrackId) {
+    throw new ApiError(400, 'This song has not been submitted to Cyanite yet');
+  }
+
+  const analysis = await getLibraryTrackAnalysis(song.cyaniteLibraryTrackId);
+
+  if (analysis.status === 'finished' && analysis.result) {
+    applyDefinedSongFields(song, mapCyaniteAnalysisToSongFields(analysis.result));
+    song.cyaniteAnalysisStatus = 'finished';
+    song.cyaniteRawAnalysis = analysis.result as Record<string, unknown>;
+  } else if (analysis.status === 'failed') {
+    song.cyaniteAnalysisStatus = 'failed';
+    song.cyaniteRawAnalysis = {
+      error: analysis.error ?? 'Cyanite analysis failed',
+      failedAt: new Date().toISOString(),
+    };
+  } else {
+    if (analysis.status === 'not_started') {
+      await enqueueLibraryTrack(song.cyaniteLibraryTrackId);
+    }
+    song.cyaniteAnalysisStatus = 'pending';
+    song.cyaniteRawAnalysis = {
+      ...(song.cyaniteRawAnalysis ?? {}),
+      lastCheckedAt: new Date().toISOString(),
+      cyaniteStatus: analysis.status,
+    };
+  }
+
+  await song.save();
+  return song;
+};
+
+export const generateAiTags = async (songId: string): Promise<SongDocument> => {
+  ensureValidObjectId(songId, 'songId');
+  const song = await Song.findById(songId);
+  if (!song) throw new ApiError(404, 'Song not found');
+
+  if (song.cyaniteLibraryTrackId && song.cyaniteAnalysisStatus !== 'failed') {
+    return refreshCyaniteAnalysisForSong(song);
+  }
+
+  const tmpInput = await downloadOriginalAudioToTmp(song);
+  try {
+    const duration = song.duration || (await getAudioDuration(tmpInput));
+    const submission = await submitLocalAudioToCyanite({
+      song,
+      inputPath: tmpInput,
+      duration,
+    });
+    song.cyaniteLibraryTrackId = submission.libraryTrackId;
+    song.cyaniteAnalysisStatus = submission.status;
+    song.cyaniteRawAnalysis = submission.rawAnalysis;
+    await song.save();
+    return song;
+  } finally {
+    fs.unlink(tmpInput, () => undefined);
+  }
+};
+
+export const handleCyaniteAnalysisWebhook = async (
+  libraryTrackId: string,
+): Promise<SongDocument | null> => {
+  const song = await Song.findOne({ cyaniteLibraryTrackId: libraryTrackId });
+  if (song) {
+    return refreshCyaniteAnalysisForSong(song);
+  }
+
+  const analysis = await getLibraryTrackAnalysis(libraryTrackId);
+  if (!analysis.externalId || !isValidObjectIdLike(analysis.externalId)) {
+    logger.warn({ libraryTrackId }, 'Cyanite webhook did not match a local song');
+    return null;
+  }
+
+  const songByExternalId = await Song.findById(analysis.externalId);
+  if (!songByExternalId) {
+    logger.warn(
+      { libraryTrackId, externalId: analysis.externalId },
+      'Cyanite webhook external id did not match a local song',
+    );
+    return null;
+  }
+
+  songByExternalId.cyaniteLibraryTrackId = libraryTrackId;
+  return refreshCyaniteAnalysisForSong(songByExternalId);
 };
 
 export const regenerateWatermark = async (

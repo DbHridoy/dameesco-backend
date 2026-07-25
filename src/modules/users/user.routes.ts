@@ -6,6 +6,7 @@ import { USER_ROLES } from '@/constants/roles';
 import * as userController from './user.controller';
 import {
   changePasswordSchema,
+  createAdminSchema,
   listUsersQuerySchema,
   updateProfileSchema,
   updateSubscriptionSchema,
@@ -34,21 +35,28 @@ router.post(
 router.get(
   '/',
   authenticate,
-  authorizeRoles(USER_ROLES.ADMIN),
+  authorizeRoles(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
   validate(listUsersQuerySchema, 'query'),
   userController.listUsers,
+);
+router.post(
+  '/admins',
+  authenticate,
+  authorizeRoles(USER_ROLES.SUPER_ADMIN),
+  validate(createAdminSchema),
+  userController.createAdmin,
 );
 router.get(
   '/:id',
   authenticate,
-  authorizeRoles(USER_ROLES.ADMIN),
+  authorizeRoles(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
   validate(userIdParamSchema, 'params'),
   userController.getUser,
 );
 router.patch(
   '/:id/status',
   authenticate,
-  authorizeRoles(USER_ROLES.ADMIN),
+  authorizeRoles(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
   validate(userIdParamSchema, 'params'),
   validate(updateUserStatusSchema),
   userController.updateUserStatus,
@@ -56,7 +64,7 @@ router.patch(
 router.patch(
   '/:id/subscription',
   authenticate,
-  authorizeRoles(USER_ROLES.ADMIN),
+  authorizeRoles(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
   validate(userIdParamSchema, 'params'),
   validate(updateSubscriptionSchema),
   userController.updateSubscription,

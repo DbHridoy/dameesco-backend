@@ -51,7 +51,7 @@ router.get(
 router.post(
   '/',
   authenticate,
-  authorizeRoles(USER_ROLES.ADMIN),
+  authorizeRoles(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
   validate(createSongSchema),
   songController.createSong,
 );
@@ -59,7 +59,7 @@ router.post(
 router.patch(
   '/:id',
   authenticate,
-  authorizeRoles(USER_ROLES.ADMIN),
+  authorizeRoles(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
   validate(songIdParamSchema, 'params'),
   validate(updateSongSchema),
   songController.updateSong,
@@ -68,7 +68,7 @@ router.patch(
 router.delete(
   '/:id',
   authenticate,
-  authorizeRoles(USER_ROLES.ADMIN),
+  authorizeRoles(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
   validate(songIdParamSchema, 'params'),
   songController.deleteSong,
 );
@@ -76,7 +76,7 @@ router.delete(
 router.get(
   '/:id/asset-url',
   authenticate,
-  authorizeRoles(USER_ROLES.ADMIN),
+  authorizeRoles(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
   validate(songIdParamSchema, 'params'),
   songController.getAssetUrl,
 );
@@ -84,7 +84,7 @@ router.get(
 router.post(
   '/:id/upload-audio',
   authenticate,
-  authorizeRoles(USER_ROLES.ADMIN),
+  authorizeRoles(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
   validate(songIdParamSchema, 'params'),
   uploadAudio.single('audio'),
   songController.uploadAudio,
@@ -93,7 +93,7 @@ router.post(
 router.post(
   '/:id/upload-cover',
   authenticate,
-  authorizeRoles(USER_ROLES.ADMIN),
+  authorizeRoles(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
   validate(songIdParamSchema, 'params'),
   uploadImage.single('cover'),
   songController.uploadCover,
@@ -102,15 +102,23 @@ router.post(
 router.post(
   '/:id/generate-watermark',
   authenticate,
-  authorizeRoles(USER_ROLES.ADMIN),
+  authorizeRoles(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
   validate(songIdParamSchema, 'params'),
   songController.generateWatermark,
+);
+
+router.post(
+  '/:id/generate-ai-tags',
+  authenticate,
+  authorizeRoles(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
+  validate(songIdParamSchema, 'params'),
+  songController.generateAiTags,
 );
 
 router.patch(
   '/:id/publish',
   authenticate,
-  authorizeRoles(USER_ROLES.ADMIN),
+  authorizeRoles(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
   validate(songIdParamSchema, 'params'),
   validate(publishSongSchema),
   songController.publishSong,
@@ -119,7 +127,7 @@ router.patch(
 router.patch(
   '/:id/archive',
   authenticate,
-  authorizeRoles(USER_ROLES.ADMIN),
+  authorizeRoles(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
   validate(songIdParamSchema, 'params'),
   songController.archiveSong,
 );

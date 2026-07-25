@@ -40,7 +40,7 @@ export const getSong = asyncHandler(async (req, res: Response) => {
 export const listSongs = asyncHandler(async (req, res: Response) => {
   const query = req.query as unknown as ListSongsQueryInput;
   // If admin, allow status filter; otherwise force published only
-  if (req.user?.role !== 'ADMIN') {
+  if (req.user?.role !== 'ADMIN' && req.user?.role !== 'SUPER_ADMIN') {
     const result = await songService.listPublishedSongs(query);
     res.status(200).json(new ApiResponse('Songs fetched', result.songs, result.meta));
     return;
@@ -118,6 +118,13 @@ export const generateWatermark = asyncHandler(async (req, res: Response) => {
   res
     .status(200)
     .json(new ApiResponse('Watermark regenerated', { song }));
+});
+
+export const generateAiTags = asyncHandler(async (req, res: Response) => {
+  const id = req.params.id!;
+  ensureValidObjectId(id, 'songId');
+  const song = await songService.generateAiTags(id);
+  res.status(200).json(new ApiResponse('AI tagging queued', { song }));
 });
 
 export const publishSong = asyncHandler(async (req, res: Response) => {

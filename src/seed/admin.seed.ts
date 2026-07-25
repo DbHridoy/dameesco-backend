@@ -18,9 +18,9 @@ const seedAdmin = async (): Promise<void> => {
         env.ADMIN_PASSWORD,
         env.BCRYPT_SALT_ROUNDS,
       );
-      if (existing.role !== USER_ROLES.ADMIN) {
-        existing.role = USER_ROLES.ADMIN;
-        logger.info(`Promoted existing user to ADMIN: ${email}`);
+      if (existing.role !== USER_ROLES.SUPER_ADMIN) {
+        existing.role = USER_ROLES.SUPER_ADMIN;
+        logger.info(`Promoted existing user to SUPER_ADMIN: ${email}`);
       }
       existing.emailVerified = true;
       await existing.save();
@@ -34,7 +34,7 @@ const seedAdmin = async (): Promise<void> => {
       name: 'Admin',
       email,
       password: hashed,
-      role: USER_ROLES.ADMIN,
+      role: USER_ROLES.SUPER_ADMIN,
       emailVerified: true,
     });
 

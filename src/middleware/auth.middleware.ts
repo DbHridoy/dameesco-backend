@@ -27,7 +27,7 @@ export const authenticate = (
 
     req.user = {
       id: decoded.id,
-      role: decoded.role as 'USER' | 'ADMIN',
+      role: decoded.role as 'USER' | 'ADMIN' | 'SUPER_ADMIN',
       email: decoded.email,
     };
     next();
@@ -67,7 +67,7 @@ export const optionalAuthenticate = (
 
     req.user = {
       id: decoded.id,
-      role: decoded.role as 'USER' | 'ADMIN',
+      role: decoded.role as 'USER' | 'ADMIN' | 'SUPER_ADMIN',
       email: decoded.email,
     };
     next();
@@ -85,7 +85,10 @@ export const requireAdmin = (
   _res: Response,
   next: NextFunction,
 ): void => {
-  if (req.user?.role !== USER_ROLES.ADMIN) {
+  if (
+    req.user?.role !== USER_ROLES.ADMIN &&
+    req.user?.role !== USER_ROLES.SUPER_ADMIN
+  ) {
     next(new ApiError(403, 'Admin access required'));
     return;
   }

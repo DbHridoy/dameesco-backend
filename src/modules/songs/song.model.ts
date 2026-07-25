@@ -23,6 +23,9 @@ export interface SongDocument extends Document {
   watermarkedAudioUrl?: string;
   previewAudioKey?: string;
   previewAudioUrl?: string;
+  cyaniteLibraryTrackId?: string;
+  cyaniteAnalysisStatus?: 'not_started' | 'pending' | 'finished' | 'failed';
+  cyaniteRawAnalysis?: Record<string, unknown>;
   fileType?: string;
   fileSize?: number;
   isFeatured: boolean;
@@ -68,6 +71,14 @@ const songSchema = new Schema<SongDocument, Model<SongDocument>>(
     watermarkedAudioUrl: { type: String },
     previewAudioKey: { type: String },
     previewAudioUrl: { type: String },
+    cyaniteLibraryTrackId: { type: String, index: true },
+    cyaniteAnalysisStatus: {
+      type: String,
+      enum: ['not_started', 'pending', 'finished', 'failed'],
+      default: 'not_started',
+      index: true,
+    },
+    cyaniteRawAnalysis: { type: Schema.Types.Mixed },
     fileType: { type: String },
     fileSize: { type: Number },
     isFeatured: { type: Boolean, default: false },

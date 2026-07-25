@@ -8,6 +8,9 @@ import {
 } from './playlist.validation';
 import { USER_ROLES } from '@/constants/roles';
 
+const isDashboardAdmin = (role: string): boolean =>
+  role === USER_ROLES.ADMIN || role === USER_ROLES.SUPER_ADMIN;
+
 export const createPlaylist = asyncHandler(async (req, res: Response) => {
   const payload = req.body as CreatePlaylistInput;
   const playlist = await playlistService.createPlaylist(req.user!.id, payload);
@@ -20,7 +23,7 @@ export const updatePlaylist = asyncHandler(async (req, res: Response) => {
   const playlist = await playlistService.updatePlaylist(
     id,
     req.user!.id,
-    req.user!.role === USER_ROLES.ADMIN,
+    isDashboardAdmin(req.user!.role),
     payload,
   );
   res.status(200).json(new ApiResponse('Playlist updated', { playlist }));
@@ -31,7 +34,7 @@ export const deletePlaylist = asyncHandler(async (req, res: Response) => {
   await playlistService.deletePlaylist(
     id,
     req.user!.id,
-    req.user!.role === USER_ROLES.ADMIN,
+    isDashboardAdmin(req.user!.role),
   );
   res.status(200).json(new ApiResponse('Playlist deleted'));
 });
@@ -54,7 +57,7 @@ export const addSong = asyncHandler(async (req, res: Response) => {
     id,
     songId,
     req.user!.id,
-    req.user!.role === USER_ROLES.ADMIN,
+    isDashboardAdmin(req.user!.role),
   );
   res
     .status(200)
@@ -68,7 +71,7 @@ export const removeSong = asyncHandler(async (req, res: Response) => {
     id,
     songId,
     req.user!.id,
-    req.user!.role === USER_ROLES.ADMIN,
+    isDashboardAdmin(req.user!.role),
   );
   res
     .status(200)

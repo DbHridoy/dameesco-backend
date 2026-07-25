@@ -4,6 +4,7 @@ import {
   SUBSCRIPTION_STATUS,
   SUBSCRIPTION_PLAN,
 } from '@/constants/subscription';
+import { USER_ROLES } from '@/constants/roles';
 
 const objectIdSchema = z
   .string()
@@ -19,6 +20,14 @@ export const updateProfileSchema = z.object({
 export const changePasswordSchema = z.object({
   oldPassword: z.string().min(1),
   newPassword: z.string().min(8).max(128),
+});
+
+export const createAdminSchema = z.object({
+  name: z.string().min(1).max(100),
+  email: z.string().email().max(150),
+  password: z.string().min(8).max(128),
+  phone: z.string().trim().optional(),
+  role: z.enum([USER_ROLES.ADMIN]).default(USER_ROLES.ADMIN),
 });
 
 export const updateUserStatusSchema = z.object({
@@ -49,7 +58,7 @@ export const listUsersQuerySchema = z.object({
   page: z.coerce.number().int().min(1).optional(),
   limit: z.coerce.number().int().min(1).max(100).optional(),
   search: z.string().optional(),
-  role: z.enum(['USER', 'ADMIN']).optional(),
+  role: z.enum([USER_ROLES.USER, USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN]).optional(),
   status: z.enum([USER_STATUS.ACTIVE, USER_STATUS.BLOCKED]).optional(),
   subscriptionStatus: z
     .enum([SUBSCRIPTION_STATUS.FREE, SUBSCRIPTION_STATUS.PAID])
@@ -62,6 +71,7 @@ export const listUsersQuerySchema = z.object({
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+export type CreateAdminInput = z.infer<typeof createAdminSchema>;
 export type UpdateUserStatusInput = z.infer<typeof updateUserStatusSchema>;
 export type UpdateSubscriptionInput = z.infer<typeof updateSubscriptionSchema>;
 export type ListUsersQueryInput = z.infer<typeof listUsersQuerySchema>;
