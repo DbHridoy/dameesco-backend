@@ -22,12 +22,17 @@ import {
 } from '@/email/email.service';
 import {
   ACCESS_REQUEST_STATUS,
+  NOTIFICATION_TYPE,
 } from '@/constants/license-status';
 import {
   SUBSCRIPTION_STATUS,
   SUBSCRIPTION_PLAN,
   SubscriptionPlan,
 } from '@/constants/subscription';
+import {
+  createAdminNotifications,
+  createNotification,
+} from '@/modules/notifications/notification.service';
 
 export const createAccessRequest = async (
   userId: string,
@@ -82,6 +87,17 @@ export const createAccessRequest = async (
     subject: 'We received your paid access request',
     name: user.name,
     requestedPlan: payload.requestedPlan,
+  });
+
+  await createAdminNotifications({
+    title: 'New paid access request',
+    message: `${user.name} requested the ${payload.requestedPlan} plan.`,
+    type: NOTIFICATION_TYPE.ACCESS_SUBMITTED,
+    metadata: {
+      requestId: request._id.toString(),
+      userId: user._id.toString(),
+      requestedPlan: payload.requestedPlan,
+    },
   });
 
   return request;
@@ -167,6 +183,21 @@ export const decideRequest = async (
     requestedPlan: request.requestedPlan,
     decision,
     adminNote: payload.adminNote,
+  });
+
+  await createNotification({
+    userId: user._id.toString(),
+    title: `Paid access request ${decision}`,
+    message:
+      decision === 'approved'
+        ? `Your ${request.requestedPlan} access request has been approved.`
+        : `Your ${request.requestedPlan} access request has been rejected.`,
+    type: NOTIFICATION_TYPE.ACCESS_UPDATED,
+    metadata: {
+      requestId: request._id.toString(),
+      requestedPlan: request.requestedPlan,
+      decision,
+    },
   });
 
   // Best-effort cleanup of payment proof on reject if you want to; kept here.

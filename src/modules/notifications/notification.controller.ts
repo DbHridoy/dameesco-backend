@@ -18,7 +18,7 @@ export const list = asyncHandler(async (req, res: Response) => {
       new ApiResponse(
         'Notifications fetched',
         result.notifications,
-        { total: result.total, page, limit },
+        { total: result.total, unread: result.unread, page, limit },
       ),
     );
 });

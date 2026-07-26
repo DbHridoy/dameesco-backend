@@ -16,7 +16,11 @@ import {
   sendLicenseStatusEmail,
 } from '@/email/email.service';
 import env from '@/config/env.config';
-import { LICENSE_STATUS } from '@/constants/license-status';
+import { LICENSE_STATUS, NOTIFICATION_TYPE } from '@/constants/license-status';
+import {
+  createAdminNotifications,
+  createNotification,
+} from '@/modules/notifications/notification.service';
 
 export const createLicenseRequest = async (
   userId: string,
@@ -66,6 +70,18 @@ export const createLicenseRequest = async (
     usageDescription: payload.usageDescription,
     budget: payload.budget,
     message: payload.message,
+  });
+
+  await createAdminNotifications({
+    title: 'New license request',
+    message: `${payload.fullName || user.name} requested a license for "${song.title}".`,
+    type: NOTIFICATION_TYPE.LICENSE_SUBMITTED,
+    metadata: {
+      requestId: request._id.toString(),
+      userId: user._id.toString(),
+      songId: song._id.toString(),
+      songTitle: song.title,
+    },
   });
 
   return request;
@@ -130,6 +146,20 @@ export const updateStatus = async (
         (request.song as any)?.title ?? 'your song',
       status: payload.status as 'approved' | 'rejected' | 'in_review',
       adminNote: payload.adminNote,
+    });
+
+    await createNotification({
+      userId: user._id.toString(),
+      title: `License request ${payload.status.replace('_', ' ')}`,
+      message: `Your license request for "${
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (request.song as any)?.title ?? 'your song'
+      }" is now ${payload.status.replace('_', ' ')}.`,
+      type: NOTIFICATION_TYPE.LICENSE_UPDATED,
+      metadata: {
+        requestId: request._id.toString(),
+        status: payload.status,
+      },
     });
   }
 
