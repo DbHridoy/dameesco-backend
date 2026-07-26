@@ -15,6 +15,20 @@ export interface LicenseSubmittedEmail extends BaseEmail {
   requestId: string;
 }
 
+export interface AdminLicenseSubmittedEmail extends BaseEmail {
+  requestId: string;
+  requesterName: string;
+  requesterEmail: string;
+  songTitle: string;
+  songArtist: string;
+  companyName?: string;
+  projectName?: string;
+  usageType: string;
+  usageDescription?: string;
+  budget?: number;
+  message?: string;
+}
+
 export interface LicenseStatusEmail extends BaseEmail {
   name: string;
   songTitle: string;
@@ -77,6 +91,27 @@ export const licenseSubmittedTemplate = (
     <p>We received your license request for <strong>${data.songTitle}</strong>.</p>
     <p>Request ID: <code>${data.requestId}</code></p>
     <p>Our team will review and respond shortly.</p>
+  `,
+  );
+};
+
+export const adminLicenseSubmittedTemplate = (
+  data: AdminLicenseSubmittedEmail,
+): string => {
+  return layout(
+    'New license request',
+    `
+    <p>A new license request has been submitted.</p>
+    <p><strong>Request ID:</strong> <code>${data.requestId}</code></p>
+    <p><strong>Track:</strong> ${data.songTitle} by ${data.songArtist}</p>
+    <p><strong>Requester:</strong> ${data.requesterName} (${data.requesterEmail})</p>
+    ${data.companyName ? `<p><strong>Company:</strong> ${data.companyName}</p>` : ''}
+    ${data.projectName ? `<p><strong>Project / Brand:</strong> ${data.projectName}</p>` : ''}
+    <p><strong>Usage Type:</strong> ${data.usageType}</p>
+    ${data.usageDescription ? `<p><strong>Usage Details:</strong> ${data.usageDescription}</p>` : ''}
+    ${data.budget !== undefined ? `<p><strong>Budget:</strong> ${data.budget}</p>` : ''}
+    ${data.message ? `<p><strong>Message:</strong> ${data.message}</p>` : ''}
+    <p>Please review this request in the admin dashboard.</p>
   `,
   );
 };

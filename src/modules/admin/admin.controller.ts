@@ -16,3 +16,9 @@ export const songStats = asyncHandler(async (_req, res: Response) => {
     .status(200)
     .json(new ApiResponse('Song stats fetched', stats));
 });
+
+export const analytics = asyncHandler(async (req, res: Response) => {
+  const range = typeof req.query.range === 'string' ? req.query.range : undefined;
+  const stats = await adminService.getAnalytics(range);
+  res.status(200).json(new ApiResponse('Analytics fetched', stats));
+});

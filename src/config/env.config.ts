@@ -37,6 +37,7 @@ const env = {
 
   ADMIN_EMAIL: optional('ADMIN_EMAIL', 'admin@dameesco.com'),
   ADMIN_PASSWORD: optional('ADMIN_PASSWORD', 'ChangeMe123!'),
+  LICENSE_ADMIN_EMAIL: optional('LICENSE_ADMIN_EMAIL', ''),
 
   AWS_ACCESS_KEY_ID: optional('AWS_ACCESS_KEY_ID', ''),
   AWS_SECRET_ACCESS_KEY: optional('AWS_SECRET_ACCESS_KEY', ''),

@@ -126,11 +126,26 @@ export const getSongByIdOrSlug = async (
     : { slug: idOrSlug };
   const song = await Song.findOne(filter);
   if (!song) throw new ApiError(404, 'Song not found');
-  return song;
+  return attachFreshSongCoverUrl(song);
 };
 
 const isValidObjectIdLike = (s: string): boolean =>
   /^[a-fA-F0-9]{24}$/.test(s);
+
+export const attachFreshSongCoverUrl = async (
+  song: SongDocument,
+): Promise<SongDocument> => {
+  if (song.coverImageKey) {
+    song.coverImageUrl = await getSignedDownloadUrl(song.coverImageKey, 900);
+  }
+  return song;
+};
+
+export const attachFreshSongCoverUrls = async (
+  songs: SongDocument[],
+): Promise<SongDocument[]> => {
+  return Promise.all(songs.map((song) => attachFreshSongCoverUrl(song)));
+};
 
 const prettyTag = (value: string): string =>
   value
@@ -305,7 +320,10 @@ export const listPublishedSongs = async (
     Song.countDocuments(filter),
   ]);
 
-  return { songs, meta: buildPaginatedMeta(page, limit, total) };
+  return {
+    songs: await attachFreshSongCoverUrls(songs),
+    meta: buildPaginatedMeta(page, limit, total),
+  };
 };
 
 export const listAllSongsAdmin = async (
@@ -331,7 +349,10 @@ export const listAllSongsAdmin = async (
     Song.countDocuments(filter),
   ]);
 
-  return { songs, meta: buildPaginatedMeta(page, limit, total) };
+  return {
+    songs: await attachFreshSongCoverUrls(songs),
+    meta: buildPaginatedMeta(page, limit, total),
+  };
 };
 
 const applySongFilters = (
@@ -373,7 +394,7 @@ export const listFeatured = async (
   })
     .sort({ createdAt: -1 })
     .limit(Math.min(limit, 50));
-  return songs;
+  return attachFreshSongCoverUrls(songs);
 };
 
 export const getAdminSongAssetUrl = async (
@@ -467,36 +488,37 @@ export const uploadCoverImage = async (
   songId: string,
   file: Express.Multer.File,
 ): Promise<SongDocument> => {
-  ensureValidObjectId(songId, 'songId');
-  const song = await Song.findById(songId);
-  if (!song) throw new ApiError(404, 'Song not found');
+  try {
+    ensureValidObjectId(songId, 'songId');
+    const song = await Song.findById(songId);
+    if (!song) throw new ApiError(404, 'Song not found');
 
-  if (!isS3Configured()) {
-    throw new ApiError(500, 'S3 storage is not configured');
+    if (!isS3Configured()) {
+      throw new ApiError(500, 'S3 storage is not configured');
+    }
+
+    const key = buildS3Key('covers', file.originalname);
+    const buffer = fs.readFileSync(file.path);
+    const uploaded = await uploadFile({
+      key,
+      body: buffer,
+      contentType: file.mimetype,
+      isPublic: true,
+    });
+
+    // Remove previous cover (best-effort)
+    if (song.coverImageKey && song.coverImageKey !== uploaded.key) {
+      await deleteFile(song.coverImageKey).catch(() => undefined);
+    }
+
+    song.coverImageKey = uploaded.key;
+    song.coverImageUrl = await getSignedDownloadUrl(uploaded.key, 900);
+    await song.save();
+
+    return song;
+  } finally {
+    fs.unlink(file.path, () => undefined);
   }
-
-  const key = buildS3Key('covers', file.originalname);
-  const buffer = fs.readFileSync(file.path);
-  const uploaded = await uploadFile({
-    key,
-    body: buffer,
-    contentType: file.mimetype,
-    isPublic: true,
-  });
-
-  // Remove previous cover (best-effort)
-  if (song.coverImageKey && song.coverImageKey !== uploaded.key) {
-    await deleteFile(song.coverImageKey).catch(() => undefined);
-  }
-
-  song.coverImageKey = uploaded.key;
-  song.coverImageUrl = uploaded.url;
-  await song.save();
-
-  // Clean up tmp file
-  fs.unlink(file.path, () => undefined);
-
-  return song;
 };
 
 /**

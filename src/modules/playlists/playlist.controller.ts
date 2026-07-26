@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { asyncHandler } from '@/utils/asyncHandler';
 import { ApiResponse } from '@/utils/ApiResponse';
 import * as playlistService from './playlist.service';
+import * as playlistAnalyticsService from '@/modules/analytics/playlist-analytics.service';
 import {
   CreatePlaylistInput,
   UpdatePlaylistInput,
@@ -45,9 +46,43 @@ export const getPlaylist = asyncHandler(async (req, res: Response) => {
   res.status(200).json(new ApiResponse('Playlist fetched', { playlist }));
 });
 
+export const uploadCover = asyncHandler(async (req, res: Response) => {
+  const id = req.params.id!;
+  if (!req.file) {
+    res.status(400).json({
+      success: false,
+      message: 'Cover image is required',
+    });
+    return;
+  }
+  const playlist = await playlistService.uploadPlaylistCoverImage(
+    id,
+    req.user!.id,
+    isDashboardAdmin(req.user!.role),
+    req.file,
+  );
+  res.status(200).json(new ApiResponse('Playlist cover uploaded', { playlist }));
+});
+
 export const listMyPlaylists = asyncHandler(async (req, res: Response) => {
   const playlists = await playlistService.listMyPlaylists(req.user!.id);
   res.status(200).json(new ApiResponse('My playlists', { playlists }));
+});
+
+export const listPublicPlaylists = asyncHandler(async (_req, res: Response) => {
+  const playlists = await playlistService.listPublicPlaylists();
+  res.status(200).json(new ApiResponse('Public playlists', { playlists }));
+});
+
+export const recordPublicPlaylistView = asyncHandler(async (req, res: Response) => {
+  const id = req.params.id!;
+  await playlistAnalyticsService.recordPlaylistView({
+    playlistId: id,
+    userId: req.user?.id,
+    ipAddress: req.ip,
+    userAgent: req.get('user-agent'),
+  });
+  res.status(200).json(new ApiResponse('Playlist view recorded'));
 });
 
 export const addSong = asyncHandler(async (req, res: Response) => {

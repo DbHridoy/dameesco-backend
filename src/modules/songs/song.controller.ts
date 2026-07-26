@@ -3,6 +3,7 @@ import { asyncHandler } from '@/utils/asyncHandler';
 import { ApiResponse } from '@/utils/ApiResponse';
 import { ensureValidObjectId } from '@/utils/sanitizeQuery';
 import * as songService from './song.service';
+import * as searchAnalyticsService from '@/modules/analytics/search-analytics.service';
 import {
   CreateSongInput,
   ListSongsQueryInput,
@@ -53,6 +54,15 @@ export const searchSongs = asyncHandler(async (req, res: Response) => {
   const { q = '' } = req.query as { q?: string };
   const query = req.query as unknown as ListSongsQueryInput;
   const result = await songService.searchSongs(String(q), query);
+  await searchAnalyticsService.recordSearchEvent({
+    query: String(q),
+    mode: 'catalog',
+    source: 'catalog',
+    songs: result.songs,
+    userId: req.user?.id,
+    ipAddress: req.ip,
+    userAgent: req.get('user-agent'),
+  }).catch(() => undefined);
   res.status(200).json(new ApiResponse('Search results', result.songs, result.meta));
 });
 

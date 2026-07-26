@@ -11,9 +11,11 @@ import {
   UpdateLicenseStatusInput,
 } from './license-request.validation';
 import {
+  sendAdminLicenseSubmittedEmail,
   sendLicenseSubmittedEmail,
   sendLicenseStatusEmail,
 } from '@/email/email.service';
+import env from '@/config/env.config';
 import { LICENSE_STATUS } from '@/constants/license-status';
 
 export const createLicenseRequest = async (
@@ -48,6 +50,22 @@ export const createLicenseRequest = async (
     name: user.name,
     songTitle: song.title,
     requestId: request._id.toString(),
+  });
+
+  await sendAdminLicenseSubmittedEmail({
+    to: env.LICENSE_ADMIN_EMAIL || env.ADMIN_EMAIL,
+    subject: `New license request: ${song.title}`,
+    requestId: request._id.toString(),
+    requesterName: payload.fullName || user.name,
+    requesterEmail: payload.email || user.email,
+    songTitle: song.title,
+    songArtist: song.artist,
+    companyName: payload.companyName,
+    projectName: payload.projectName,
+    usageType: payload.usageType,
+    usageDescription: payload.usageDescription,
+    budget: payload.budget,
+    message: payload.message,
   });
 
   return request;

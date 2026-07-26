@@ -5,6 +5,9 @@ const objectIdSchema = z.string().regex(/^[a-fA-F0-9]{24}$/, 'Invalid id');
 export const createPlaylistSchema = z.object({
   name: z.string().min(1).max(150),
   description: z.string().max(1000).optional(),
+  theme: z.string().max(80).optional(),
+  genre: z.string().max(80).optional(),
+  mood: z.string().max(80).optional(),
   isPublic: z.boolean().optional(),
   songs: z.array(objectIdSchema).optional(),
 });
@@ -12,7 +15,11 @@ export const createPlaylistSchema = z.object({
 export const updatePlaylistSchema = z.object({
   name: z.string().min(1).max(150).optional(),
   description: z.string().max(1000).optional(),
+  theme: z.string().max(80).optional(),
+  genre: z.string().max(80).optional(),
+  mood: z.string().max(80).optional(),
   isPublic: z.boolean().optional(),
+  songs: z.array(objectIdSchema).optional(),
 });
 
 export const playlistIdParamSchema = z.object({

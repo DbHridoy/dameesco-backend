@@ -11,6 +11,7 @@ import notificationRoutes from '@/modules/notifications/notification.routes';
 import webhookRoutes from '@/modules/webhooks/webhook.routes';
 import videoSyncRoutes from '@/modules/video-sync/video-sync.routes';
 import aiSearchRoutes from '@/modules/ai-search/ai-search.routes';
+import pricingRoutes from '@/modules/pricing/pricing.routes';
 import { ApiResponse } from '@/utils/ApiResponse';
 
 const router = Router();
@@ -33,5 +34,6 @@ router.use('/admin', adminRoutes);
 router.use('/webhooks', webhookRoutes);
 router.use('/video-sync', videoSyncRoutes);
 router.use('/ai-search', aiSearchRoutes);
+router.use('/pricing', pricingRoutes);
 
 export default router;

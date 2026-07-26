@@ -6,4 +6,10 @@ export const smartSearchSchema = z.object({
   limit: z.number().int().min(1).max(50).optional(),
 });
 
+export const linkMatchSchema = z.object({
+  url: z.string().url().max(2048),
+  limit: z.number().int().min(1).max(50).optional(),
+});
+
 export type SmartSearchInput = z.infer<typeof smartSearchSchema>;
+export type LinkMatchInput = z.infer<typeof linkMatchSchema>;

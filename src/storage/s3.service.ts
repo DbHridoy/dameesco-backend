@@ -14,6 +14,11 @@ export interface UploadFileOptions {
   key: string;
   body: Buffer | Readable | string;
   contentType?: string;
+  /**
+   * When true, callers receive the configured public URL for this key.
+   * The uploader intentionally does not set object ACLs because many S3
+   * buckets disable ACLs via Object Ownership.
+   */
   isPublic?: boolean;
 }
 
@@ -35,7 +40,6 @@ export const uploadFile = async (
         Key: options.key,
         Body: options.body,
         ContentType: options.contentType,
-        ACL: options.isPublic ? 'public-read' : undefined,
       }),
     );
 

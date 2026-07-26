@@ -2,11 +2,13 @@ import env from '@/config/env.config';
 import logger from '@/config/logger.config';
 import {
   passwordResetTemplate,
+  adminLicenseSubmittedTemplate,
   licenseSubmittedTemplate,
   licenseStatusTemplate,
   accessRequestSubmittedTemplate,
   accessRequestDecisionTemplate,
   PasswordResetEmail,
+  AdminLicenseSubmittedEmail,
   LicenseSubmittedEmail,
   LicenseStatusEmail,
   AccessRequestSubmittedEmail,
@@ -71,6 +73,12 @@ export const sendLicenseSubmittedEmail = async (
   data: LicenseSubmittedEmail,
 ): Promise<void> => {
   await send(data.to, data.subject, licenseSubmittedTemplate(data));
+};
+
+export const sendAdminLicenseSubmittedEmail = async (
+  data: AdminLicenseSubmittedEmail,
+): Promise<void> => {
+  await send(data.to, data.subject, adminLicenseSubmittedTemplate(data));
 };
 
 export const sendLicenseStatusEmail = async (

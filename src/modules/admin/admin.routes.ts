@@ -19,6 +19,7 @@ router.use(authenticate, authorizeRoles(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN
 
 router.get('/dashboard', adminController.dashboard);
 router.get('/songs/stats', adminController.songStats);
+router.get('/analytics', adminController.analytics);
 
 // Users
 router.get(
