@@ -1,4 +1,5 @@
 import Song from '@/modules/songs/song.model';
+import Stem from '@/modules/songs/stem.model';
 import User from '@/modules/users/user.model';
 import Download, { DownloadDocument } from './download.model';
 import { ApiError } from '@/utils/ApiError';
@@ -10,11 +11,12 @@ import { incrementDownloadsUsed } from '@/modules/users/user.service';
 
 export interface DownloadResult {
   downloadUrl: string;
-  fileType: 'original' | 'watermarked' | 'preview';
+  fileType: 'original' | 'watermarked' | 'preview' | 'stem';
   expiresIn: number;
+  filename?: string;
 }
 
-const isPaidActive = (user: {
+export const isPaidActive = (user: {
   subscriptionStatus: string;
   paidAccessEndsAt?: Date | null;
 }): boolean => {
@@ -23,6 +25,59 @@ const isPaidActive = (user: {
     return false;
   }
   return true;
+};
+
+export const requestStemDownload = async (
+  userId: string,
+  songId: string,
+  stemId: string,
+  ip: string | undefined,
+  ua: string | undefined,
+): Promise<DownloadResult> => {
+  ensureValidObjectId(songId, 'songId');
+  ensureValidObjectId(stemId, 'stemId');
+
+  const [song, stem, user] = await Promise.all([
+    Song.findOne({ _id: songId, status: 'published' }),
+    Stem.findOne({ _id: stemId, song: songId }).select('+audioKey'),
+    User.findById(userId),
+  ]);
+
+  if (!song) throw new ApiError(404, 'Song not found');
+  if (!stem) throw new ApiError(404, 'Stem not found');
+  if (!user) throw new ApiError(404, 'User not found');
+  if (!song.isDownloadable) {
+    throw new ApiError(403, 'This song is not available for download');
+  }
+  if (!isPaidActive(user)) {
+    throw new ApiError(403, 'Paid access is required to download stems');
+  }
+  if (user.downloadLimit > 0 && user.downloadsUsed >= user.downloadLimit) {
+    throw new ApiError(403, 'Download limit reached');
+  }
+
+  const url = await getSignedDownloadUrl(stem.audioKey, 900);
+  await Download.create({
+    user: user._id,
+    song: song._id,
+    stem: stem._id,
+    fileType: FILE_TYPE.STEM,
+    userSubscriptionStatusAtDownload: SUBSCRIPTION_STATUS.PAID,
+    ipAddress: ip,
+    userAgent: ua,
+  });
+  await Promise.all([
+    incrementDownloadsUsed(user._id.toString()),
+    Song.findByIdAndUpdate(song._id, { $inc: { downloadCount: 1 } }),
+    Stem.findByIdAndUpdate(stem._id, { $inc: { downloadCount: 1 } }),
+  ]);
+
+  return {
+    downloadUrl: url,
+    fileType: 'stem',
+    expiresIn: 900,
+    filename: stem.originalFilename,
+  };
 };
 
 export const requestSongDownload = async (
@@ -111,16 +166,18 @@ export const getDownloadStats = async (): Promise<{
   original: number;
   watermarked: number;
   preview: number;
+  stem: number;
   last7Days: number;
 }> => {
-  const [total, original, watermarked, preview, last7] = await Promise.all([
+  const [total, original, watermarked, preview, stem, last7] = await Promise.all([
     Download.countDocuments(),
     Download.countDocuments({ fileType: FILE_TYPE.ORIGINAL }),
     Download.countDocuments({ fileType: FILE_TYPE.WATERMARKED }),
     Download.countDocuments({ fileType: FILE_TYPE.PREVIEW }),
+    Download.countDocuments({ fileType: FILE_TYPE.STEM }),
     Download.countDocuments({
       createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
     }),
   ]);
-  return { total, original, watermarked, preview, last7Days: last7 };
+  return { total, original, watermarked, preview, stem, last7Days: last7 };
 };

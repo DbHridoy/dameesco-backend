@@ -18,6 +18,21 @@ export const downloadSong = asyncHandler(async (req, res: Response) => {
     .json(new ApiResponse('Download URL generated', result));
 });
 
+export const downloadStem = asyncHandler(async (req, res: Response) => {
+  const ip = (req.ip || req.headers['x-forwarded-for']?.toString()) ?? '';
+  const ua = req.headers['user-agent'] ?? '';
+  const result = await downloadService.requestStemDownload(
+    req.user!.id,
+    req.params.songId!,
+    req.params.stemId!,
+    ip,
+    typeof ua === 'string' ? ua : '',
+  );
+  res
+    .status(200)
+    .json(new ApiResponse('Stem download URL generated', result));
+});
+
 // Admin
 export const listDownloads = asyncHandler(async (req, res: Response) => {
   const page = Number(req.query.page ?? 1);

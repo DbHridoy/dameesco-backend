@@ -7,6 +7,12 @@ import * as downloadController from './download.controller';
 const router = Router();
 
 router.post(
+  '/songs/:songId/stems/:stemId',
+  authenticate,
+  downloadController.downloadStem,
+);
+
+router.post(
   '/songs/:songId',
   authenticate,
   downloadController.downloadSong,

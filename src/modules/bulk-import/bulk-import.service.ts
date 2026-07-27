@@ -8,9 +8,15 @@ import BulkImportJob, {
   BULK_IMPORT_STATUS,
   BulkImportJobDocument,
   BulkImportRow,
+  BulkImportStemRow,
 } from './bulk-import.model';
 import Song from '@/modules/songs/song.model';
+import Stem from '@/modules/songs/stem.model';
 import * as songService from '@/modules/songs/song.service';
+import {
+  createStemFromFile,
+  normalizeStemFilename,
+} from '@/modules/songs/stem.service';
 import { ApiError } from '@/utils/ApiError';
 import { ensureValidObjectId } from '@/utils/sanitizeQuery';
 import { SONG_STATUS } from '@/constants/song-status';
@@ -29,10 +35,17 @@ const templateHeaders = [
   'tags',
   'bpm',
   'key',
-  'language',
+  'trackLanguage',
   'releaseDate',
   'isDownloadable',
   'status',
+];
+const stemTemplateHeaders = [
+  'trackReference',
+  'stemFilename',
+  'stemType',
+  'displayName',
+  'sortOrder',
 ];
 
 type UploadedBulkFiles = {
@@ -68,7 +81,7 @@ const normalizeName = (value: string): string =>
 const duplicateKey = (audioFilename: string, title: string): string =>
   `${normalizeName(audioFilename)}::${title.trim().toLowerCase()}`;
 
-const summarize = (rows: BulkImportRow[]) => ({
+const summarize = (rows: BulkImportRow[], stemRows: BulkImportStemRow[] = []) => ({
   total: rows.length,
   valid: rows.filter((row) => row.rowStatus === BULK_IMPORT_ROW_STATUS.VALID).length,
   invalid: rows.filter((row) => row.rowStatus === BULK_IMPORT_ROW_STATUS.INVALID).length,
@@ -76,13 +89,28 @@ const summarize = (rows: BulkImportRow[]) => ({
   imported: rows.filter((row) => row.rowStatus === BULK_IMPORT_ROW_STATUS.IMPORTED).length,
   skipped: rows.filter((row) => row.rowStatus === BULK_IMPORT_ROW_STATUS.SKIPPED).length,
   failed: rows.filter((row) => row.rowStatus === BULK_IMPORT_ROW_STATUS.FAILED).length,
+  stemTotal: stemRows.length,
+  stemValid: stemRows.filter((row) => row.rowStatus === BULK_IMPORT_ROW_STATUS.VALID).length,
+  stemInvalid: stemRows.filter((row) => row.rowStatus === BULK_IMPORT_ROW_STATUS.INVALID).length,
+  stemWarnings: stemRows.filter((row) => row.warnings.length).length,
+  stemImported: stemRows.filter((row) => row.rowStatus === BULK_IMPORT_ROW_STATUS.IMPORTED).length,
+  stemSkipped: stemRows.filter((row) => row.rowStatus === BULK_IMPORT_ROW_STATUS.SKIPPED).length,
+  stemFailed: stemRows.filter((row) => row.rowStatus === BULK_IMPORT_ROW_STATUS.FAILED).length,
 });
 
-const readMetadataRows = (metadataPath: string): RawRow[] => {
+const readMetadataRows = (
+  metadataPath: string,
+): { trackRows: RawRow[]; stemRows: RawRow[] } => {
   const workbook = xlsx.readFile(metadataPath);
-  const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  if (!sheet) throw new ApiError(400, 'Metadata file does not contain a sheet');
-  return xlsx.utils.sheet_to_json<RawRow>(sheet, { defval: '' });
+  const trackSheet = workbook.Sheets.Tracks ?? workbook.Sheets[workbook.SheetNames[0]];
+  if (!trackSheet) throw new ApiError(400, 'Metadata file does not contain a Tracks sheet');
+  const stemSheet = workbook.Sheets.Stems;
+  return {
+    trackRows: xlsx.utils.sheet_to_json<RawRow>(trackSheet, { defval: '' }),
+    stemRows: stemSheet
+      ? xlsx.utils.sheet_to_json<RawRow>(stemSheet, { defval: '' })
+      : [],
+  };
 };
 
 const extractZip = async (zipPath: string, extractDir: string): Promise<string[]> => {
@@ -162,6 +190,7 @@ const validateRows = async (
     existingImportedSongs.map((song) => String(song._id)),
   );
   const importedKeys = new Set<string>();
+  const importedSongByKey = new Map<string, Types.ObjectId>();
   existingJobs.forEach((job) => {
     job.rows.forEach((row) => {
       if (
@@ -169,7 +198,9 @@ const validateRows = async (
         row.importedSong &&
         existingImportedSongIds.has(String(row.importedSong))
       ) {
-        importedKeys.add(duplicateKey(row.audioFilename, row.title));
+        const key = duplicateKey(row.audioFilename, row.title);
+        importedKeys.add(key);
+        importedSongByKey.set(key, row.importedSong);
       }
     });
   });
@@ -238,7 +269,7 @@ const validateRows = async (
       tags: parseTags(raw.tags),
       bpm,
       key: clean(raw.key) || undefined,
-      language: clean(raw.language) || undefined,
+      language: clean(raw.trackLanguage) || undefined,
       releaseDate,
       isDownloadable: parseBool(raw.isDownloadable, true),
       status,
@@ -249,6 +280,7 @@ const validateRows = async (
           : BULK_IMPORT_ROW_STATUS.VALID,
       errors,
       warnings,
+      importedSong: importedSongByKey.get(key),
     });
   }
 
@@ -257,6 +289,92 @@ const validateRows = async (
     .map((filePath) => path.relative(path.dirname(audioFiles[0] ?? ''), filePath));
 
   return { rows, unmatchedFiles };
+};
+
+const resolveExistingTrack = async (
+  reference: string,
+): Promise<{ id?: Types.ObjectId; matchedBy?: 'id' | 'slug' }> => {
+  if (Types.ObjectId.isValid(reference)) {
+    const song = await Song.findById(reference).select('_id').lean();
+    if (song) return { id: song._id, matchedBy: 'id' };
+  }
+  const song = await Song.findOne({ slug: reference }).select('_id').lean();
+  return song ? { id: song._id, matchedBy: 'slug' } : {};
+};
+
+const validateStemRows = async (
+  rawRows: RawRow[],
+  audioFiles: string[],
+  trackRows: BulkImportRow[],
+): Promise<BulkImportStemRow[]> => {
+  const audioByName = new Map(audioFiles.map((filePath) => [normalizeName(filePath), filePath]));
+  const masterReferences = new Set(
+    trackRows.map((row) => normalizeName(row.audioFilename)).filter(Boolean),
+  );
+  const seen = new Set<string>();
+  const rows: BulkImportStemRow[] = [];
+
+  for (const [index, raw] of rawRows.entries()) {
+    const rowNumber = index + 2;
+    const trackReference = clean(raw.trackReference);
+    const stemFilename = clean(raw.stemFilename);
+    const stemType = clean(raw.stemType);
+    const displayName = clean(raw.displayName) || stemType;
+    const normalizedStem = normalizeStemFilename(stemFilename);
+    const matchedFilePath = normalizedStem ? audioByName.get(normalizedStem) : undefined;
+    const errors: string[] = [];
+    const warnings: string[] = [];
+    const duplicate = `${trackReference.toLowerCase()}::${normalizedStem}`;
+
+    if (!trackReference) errors.push('trackReference is required');
+    if (!stemFilename) errors.push('stemFilename is required');
+    if (!stemType) errors.push('stemType is required');
+    if (stemFilename && !matchedFilePath) errors.push('stemFilename was not found in the ZIP');
+    if (seen.has(duplicate)) errors.push('Duplicate trackReference + stemFilename in the Stems sheet');
+    seen.add(duplicate);
+
+    const sortOrderText = clean(raw.sortOrder);
+    const sortOrder = sortOrderText ? Number(sortOrderText) : 0;
+    if (!Number.isInteger(sortOrder) || sortOrder < 0) {
+      errors.push('sortOrder must be a non-negative whole number');
+    }
+
+    let targetSong: Types.ObjectId | undefined;
+    const targetsNewTrack = masterReferences.has(normalizeName(trackReference));
+    if (!targetsNewTrack && trackReference) {
+      const existing = await resolveExistingTrack(trackReference);
+      targetSong = existing.id;
+      if (!targetSong) {
+        errors.push('trackReference does not match a Tracks audioFilename, Song ID, or Song slug');
+      } else {
+        const duplicateStem = await Stem.exists({
+          song: targetSong,
+          normalizedFilename: normalizedStem,
+        });
+        if (duplicateStem) warnings.push('This stem already exists and will be skipped');
+      }
+    }
+
+    rows.push({
+      rowNumber,
+      trackReference,
+      stemFilename,
+      matchedFilePath,
+      stemType,
+      displayName,
+      sortOrder: Number.isInteger(sortOrder) && sortOrder >= 0 ? sortOrder : 0,
+      targetSong,
+      rowStatus: warnings.some((warning) => warning.includes('already exists'))
+        ? BULK_IMPORT_ROW_STATUS.SKIPPED
+        : errors.length
+          ? BULK_IMPORT_ROW_STATUS.INVALID
+          : BULK_IMPORT_ROW_STATUS.VALID,
+      errors,
+      warnings,
+    });
+  }
+
+  return rows;
 };
 
 export const createTemplateWorkbook = (): Buffer => {
@@ -271,20 +389,29 @@ export const createTemplateWorkbook = (): Buffer => {
     tags: 'dark, synth, driving',
     bpm: 128,
     key: 'A Minor',
-    language: 'Instrumental',
+    trackLanguage: 'Instrumental',
     releaseDate: '2026-07-27',
     isDownloadable: 'true',
     status: 'draft',
   };
   const sheet = xlsx.utils.json_to_sheet([example], { header: templateHeaders });
+  const stemSheet = xlsx.utils.json_to_sheet([{
+    trackReference: 'midnight-signal.wav',
+    stemFilename: 'midnight-signal-drums.wav',
+    stemType: 'Drums',
+    displayName: 'Drums',
+    sortOrder: 1,
+  }], { header: stemTemplateHeaders });
   const workbook = xlsx.utils.book_new();
   xlsx.utils.book_append_sheet(workbook, sheet, 'Tracks');
+  xlsx.utils.book_append_sheet(workbook, stemSheet, 'Stems');
   return xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
 };
 
 export const validateImport = async (
   files: Express.Multer.File[] | { [fieldname: string]: Express.Multer.File[] } | undefined,
   userId: string,
+  triggerCyanite = false,
 ): Promise<BulkImportJobDocument> => {
   const { zipFile, metadataFile } = getUploadedFiles(files);
   ensureTmpRoot();
@@ -296,8 +423,16 @@ export const validateImport = async (
   const zipPath = await copyUpload(zipFile, jobDir);
   const metadataPath = await copyUpload(metadataFile, jobDir);
   const audioFiles = await extractZip(zipPath, extractDir);
-  const rawRows = readMetadataRows(metadataPath);
-  const { rows, unmatchedFiles } = await validateRows(rawRows, audioFiles);
+  const { trackRows, stemRows: rawStemRows } = readMetadataRows(metadataPath);
+  const { rows } = await validateRows(trackRows, audioFiles);
+  const stemRows = await validateStemRows(rawStemRows, audioFiles, rows);
+  const usedFiles = new Set([
+    ...rows.map((row) => row.matchedFilePath).filter(Boolean),
+    ...stemRows.map((row) => row.matchedFilePath).filter(Boolean),
+  ]);
+  const unmatchedFiles = audioFiles
+    .filter((filePath) => !usedFiles.has(filePath))
+    .map((filePath) => path.relative(extractDir, filePath));
 
   return BulkImportJob.create({
     _id: jobId,
@@ -308,15 +443,20 @@ export const validateImport = async (
     zipPath,
     metadataPath,
     extractDir,
+    triggerCyanite,
     rows,
+    stemRows,
     unmatchedFiles,
-    summary: summarize(rows),
+    summary: summarize(rows, stemRows),
   });
 };
 
 export const getJob = async (id: string): Promise<BulkImportJobDocument> => {
   ensureValidObjectId(id, 'jobId');
-  const job = await BulkImportJob.findById(id).populate('rows.importedSong', 'title artist');
+  const job = await BulkImportJob.findById(id)
+    .populate('rows.importedSong', 'title artist')
+    .populate('stemRows.targetSong', 'title artist slug')
+    .populate('stemRows.importedStem', 'displayName type');
   if (!job) throw new ApiError(404, 'Bulk import job not found');
   return job;
 };
@@ -380,7 +520,7 @@ const processJob = async (jobId: string, userId: string) => {
 
         const file = await makeMulterFile(row);
         await songService.uploadAndProcessAudio(song._id.toString(), file, {
-          triggerCyanite: false,
+          triggerCyanite: job.triggerCyanite,
         });
 
         row.importedSong = song._id;
@@ -391,19 +531,68 @@ const processJob = async (jobId: string, userId: string) => {
         row.errors.push(error instanceof Error ? error.message : 'Import failed');
       }
 
-      job.summary = summarize(job.rows);
+      job.summary = summarize(job.rows, job.stemRows);
+      await job.save();
+    }
+
+    const importedTracks = new Map<string, Types.ObjectId>();
+    job.rows.forEach((row) => {
+      if (row.importedSong) {
+        importedTracks.set(normalizeName(row.audioFilename), row.importedSong);
+      }
+    });
+
+    for (const row of job.stemRows) {
+      if (row.rowStatus !== BULK_IMPORT_ROW_STATUS.VALID) continue;
+
+      row.rowStatus = BULK_IMPORT_ROW_STATUS.IMPORTING;
+      await job.save();
+
+      try {
+        const targetSong = row.targetSong
+          ?? importedTracks.get(normalizeName(row.trackReference));
+        if (!targetSong) {
+          throw new ApiError(
+            400,
+            'The referenced track was not imported successfully',
+          );
+        }
+        if (!row.matchedFilePath) {
+          throw new ApiError(400, 'Matched stem audio file is missing');
+        }
+
+        const stem = await createStemFromFile({
+          songId: targetSong.toString(),
+          displayName: row.displayName,
+          type: row.stemType,
+          originalFilename: row.stemFilename,
+          filePath: row.matchedFilePath,
+          sortOrder: row.sortOrder,
+          uploadedBy: userId,
+        });
+
+        row.targetSong = targetSong;
+        row.importedStem = stem._id;
+        row.rowStatus = BULK_IMPORT_ROW_STATUS.IMPORTED;
+        row.processedAt = new Date();
+      } catch (error) {
+        row.rowStatus = BULK_IMPORT_ROW_STATUS.FAILED;
+        row.errors.push(error instanceof Error ? error.message : 'Stem import failed');
+      }
+
+      job.summary = summarize(job.rows, job.stemRows);
       await job.save();
     }
 
     job.status = BULK_IMPORT_STATUS.COMPLETED;
     job.completedAt = new Date();
-    job.summary = summarize(job.rows);
+    job.summary = summarize(job.rows, job.stemRows);
     await job.save();
   } catch (error) {
     job.status = BULK_IMPORT_STATUS.FAILED;
     job.error = error instanceof Error ? error.message : 'Bulk import failed';
     job.completedAt = new Date();
-    job.summary = summarize(job.rows);
+    job.summary = summarize(job.rows, job.stemRows);
     await job.save();
     logger.error({ error, jobId }, 'Bulk import job failed');
   }
@@ -419,7 +608,10 @@ export const startImport = async (
   }
 
   const importableRows = job.rows.filter((row) => row.rowStatus === BULK_IMPORT_ROW_STATUS.VALID);
-  if (!importableRows.length) {
+  const importableStemRows = job.stemRows.filter(
+    (row) => row.rowStatus === BULK_IMPORT_ROW_STATUS.VALID,
+  );
+  if (!importableRows.length && !importableStemRows.length) {
     throw new ApiError(400, 'No valid new rows are available to import');
   }
 
@@ -438,8 +630,10 @@ const csvValue = (value: unknown): string => {
 export const buildReportCsv = async (id: string): Promise<string> => {
   const job = await getJob(id);
   const headers = [
+    'recordType',
     'rowNumber',
-    'audioFilename',
+    'filename',
+    'trackReference',
     'title',
     'artist',
     'status',
@@ -450,12 +644,28 @@ export const buildReportCsv = async (id: string): Promise<string> => {
   const lines = [headers.join(',')];
   job.rows.forEach((row) => {
     lines.push([
+      'track',
       row.rowNumber,
       row.audioFilename,
+      '',
       row.title,
       row.artist,
       row.rowStatus,
       row.importedSong ? String(row.importedSong) : '',
+      row.errors.join('; '),
+      row.warnings.join('; '),
+    ].map(csvValue).join(','));
+  });
+  job.stemRows.forEach((row) => {
+    lines.push([
+      'stem',
+      row.rowNumber,
+      row.stemFilename,
+      row.trackReference,
+      row.displayName,
+      row.stemType,
+      row.rowStatus,
+      row.importedStem ? String(row.importedStem) : '',
       row.errors.join('; '),
       row.warnings.join('; '),
     ].map(csvValue).join(','));

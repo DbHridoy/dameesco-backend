@@ -10,6 +10,7 @@ export const FILE_TYPE = {
   ORIGINAL: 'original',
   WATERMARKED: 'watermarked',
   PREVIEW: 'preview',
+  STEM: 'stem',
 } as const;
 
 export type FileType = (typeof FILE_TYPE)[keyof typeof FILE_TYPE];

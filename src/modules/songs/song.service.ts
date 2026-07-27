@@ -41,6 +41,7 @@ import {
   requestFileUpload,
   uploadAudioToCyanite,
 } from '@/modules/ai-search/cyanite.service';
+import { deleteAllSongStems } from './stem.service';
 
 interface UploadAudioResult {
   originalAudioKey: string;
@@ -116,6 +117,7 @@ export const deleteSong = async (id: string): Promise<void> => {
 
   await Promise.allSettled(keysToDelete.map((k) => deleteFile(k).catch(() => {})));
 
+  await deleteAllSongStems(id);
   await song.deleteOne();
 };
 

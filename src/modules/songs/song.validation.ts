@@ -46,6 +46,11 @@ export const songIdParamSchema = z.object({
   id: objectIdSchema,
 });
 
+export const stemParamSchema = z.object({
+  id: objectIdSchema,
+  stemId: objectIdSchema,
+});
+
 export const idOrSlugParamSchema = z.object({
   idOrSlug: z.string().min(1),
 });

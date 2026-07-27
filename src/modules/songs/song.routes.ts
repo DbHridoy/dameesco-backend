@@ -5,6 +5,7 @@ import { validate } from '@/middleware/validate.middleware';
 import { uploadAudio, uploadImage } from '@/middleware/upload.middleware';
 import { USER_ROLES } from '@/constants/roles';
 import * as songController from './song.controller';
+import * as stemController from './stem.controller';
 import bulkImportRoutes from '@/modules/bulk-import/bulk-import.routes';
 import {
   bulkSongStatusSchema,
@@ -13,6 +14,7 @@ import {
   listSongsQuerySchema,
   publishSongSchema,
   songIdParamSchema,
+  stemParamSchema,
   updateSongSchema,
 } from './song.validation';
 
@@ -43,6 +45,29 @@ router.get(
   '/:id/preview-url',
   validate(songIdParamSchema, 'params'),
   songController.getPreviewAssetUrl,
+);
+
+router.get(
+  '/:id/stems',
+  optionalAuthenticate,
+  validate(songIdParamSchema, 'params'),
+  stemController.listStems,
+);
+
+router.get(
+  '/:id/stems/:stemId/asset-url',
+  authenticate,
+  authorizeRoles(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
+  validate(stemParamSchema, 'params'),
+  stemController.getStemAssetUrl,
+);
+
+router.delete(
+  '/:id/stems/:stemId',
+  authenticate,
+  authorizeRoles(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
+  validate(stemParamSchema, 'params'),
+  stemController.deleteStem,
 );
 
 router.get(

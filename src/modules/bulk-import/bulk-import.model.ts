@@ -45,6 +45,22 @@ export interface BulkImportRow {
   processedAt?: Date;
 }
 
+export interface BulkImportStemRow {
+  rowNumber: number;
+  trackReference: string;
+  stemFilename: string;
+  matchedFilePath?: string;
+  stemType: string;
+  displayName: string;
+  sortOrder: number;
+  targetSong?: Types.ObjectId;
+  rowStatus: BulkImportRowStatus;
+  errors: string[];
+  warnings: string[];
+  importedStem?: Types.ObjectId;
+  processedAt?: Date;
+}
+
 export interface BulkImportJobDocument extends Document {
   createdBy: Types.ObjectId;
   status: BulkImportStatus;
@@ -53,7 +69,9 @@ export interface BulkImportJobDocument extends Document {
   zipPath: string;
   metadataPath: string;
   extractDir: string;
+  triggerCyanite: boolean;
   rows: BulkImportRow[];
+  stemRows: BulkImportStemRow[];
   unmatchedFiles: string[];
   summary: {
     total: number;
@@ -63,6 +81,13 @@ export interface BulkImportJobDocument extends Document {
     imported: number;
     skipped: number;
     failed: number;
+    stemTotal: number;
+    stemValid: number;
+    stemInvalid: number;
+    stemWarnings: number;
+    stemImported: number;
+    stemSkipped: number;
+    stemFailed: number;
   };
   startedAt?: Date;
   completedAt?: Date;
@@ -106,6 +131,29 @@ const bulkImportRowSchema = new Schema<BulkImportRow>(
   { _id: false },
 );
 
+const bulkImportStemRowSchema = new Schema<BulkImportStemRow>(
+  {
+    rowNumber: { type: Number, required: true },
+    trackReference: { type: String, required: true, trim: true },
+    stemFilename: { type: String, required: true, trim: true },
+    matchedFilePath: { type: String },
+    stemType: { type: String, required: true, trim: true },
+    displayName: { type: String, required: true, trim: true },
+    sortOrder: { type: Number, default: 0 },
+    targetSong: { type: Schema.Types.ObjectId, ref: 'Song' },
+    rowStatus: {
+      type: String,
+      enum: Object.values(BULK_IMPORT_ROW_STATUS),
+      default: BULK_IMPORT_ROW_STATUS.VALID,
+    },
+    errors: { type: [String], default: [] },
+    warnings: { type: [String], default: [] },
+    importedStem: { type: Schema.Types.ObjectId, ref: 'Stem' },
+    processedAt: { type: Date },
+  },
+  { _id: false },
+);
+
 const bulkImportJobSchema = new Schema<
   BulkImportJobDocument,
   Model<BulkImportJobDocument>
@@ -128,7 +176,9 @@ const bulkImportJobSchema = new Schema<
     zipPath: { type: String, required: true },
     metadataPath: { type: String, required: true },
     extractDir: { type: String, required: true },
+    triggerCyanite: { type: Boolean, default: false },
     rows: { type: [bulkImportRowSchema], default: [] },
+    stemRows: { type: [bulkImportStemRowSchema], default: [] },
     unmatchedFiles: { type: [String], default: [] },
     summary: {
       total: { type: Number, default: 0 },
@@ -138,6 +188,13 @@ const bulkImportJobSchema = new Schema<
       imported: { type: Number, default: 0 },
       skipped: { type: Number, default: 0 },
       failed: { type: Number, default: 0 },
+      stemTotal: { type: Number, default: 0 },
+      stemValid: { type: Number, default: 0 },
+      stemInvalid: { type: Number, default: 0 },
+      stemWarnings: { type: Number, default: 0 },
+      stemImported: { type: Number, default: 0 },
+      stemSkipped: { type: Number, default: 0 },
+      stemFailed: { type: Number, default: 0 },
     },
     startedAt: { type: Date },
     completedAt: { type: Date },

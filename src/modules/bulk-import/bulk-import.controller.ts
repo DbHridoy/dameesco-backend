@@ -17,7 +17,12 @@ export const downloadTemplate = asyncHandler(async (_req, res: Response) => {
 });
 
 export const validateImport = asyncHandler(async (req, res: Response) => {
-  const job = await bulkImportService.validateImport(req.files, req.user!.id);
+  const triggerCyanite = String(req.body?.triggerCyanite).toLowerCase() === 'true';
+  const job = await bulkImportService.validateImport(
+    req.files,
+    req.user!.id,
+    triggerCyanite,
+  );
   res
     .status(201)
     .json(new ApiResponse('Bulk import validated', { job }));
