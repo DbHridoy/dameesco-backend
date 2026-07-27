@@ -145,11 +145,30 @@ const validateRows = async (
   const existingJobs = await BulkImportJob.find({
     'rows.rowStatus': BULK_IMPORT_ROW_STATUS.IMPORTED,
     'rows.audioFilename': { $exists: true },
-  }).select('rows.audioFilename rows.title rows.rowStatus');
+  }).select('rows.audioFilename rows.title rows.rowStatus rows.importedSong');
+  const importedSongIds = existingJobs.flatMap((job) =>
+    job.rows
+      .filter(
+        (row) =>
+          row.rowStatus === BULK_IMPORT_ROW_STATUS.IMPORTED &&
+          row.importedSong,
+      )
+      .map((row) => row.importedSong!),
+  );
+  const existingImportedSongs = importedSongIds.length
+    ? await Song.find({ _id: { $in: importedSongIds } }).select('_id').lean()
+    : [];
+  const existingImportedSongIds = new Set(
+    existingImportedSongs.map((song) => String(song._id)),
+  );
   const importedKeys = new Set<string>();
   existingJobs.forEach((job) => {
     job.rows.forEach((row) => {
-      if (row.rowStatus === BULK_IMPORT_ROW_STATUS.IMPORTED) {
+      if (
+        row.rowStatus === BULK_IMPORT_ROW_STATUS.IMPORTED &&
+        row.importedSong &&
+        existingImportedSongIds.has(String(row.importedSong))
+      ) {
         importedKeys.add(duplicateKey(row.audioFilename, row.title));
       }
     });

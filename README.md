@@ -114,6 +114,10 @@ Swagger UI: `http://localhost:5000/api-docs`
 
 Raw JSON: `http://localhost:5000/api-docs.json`
 
+## Feature Documentation
+
+- [Bulk Track Import](docs/BULK_TRACK_IMPORT.md)
+
 ## Key Endpoints
 
 All endpoints are prefixed with `/api/v1`.
