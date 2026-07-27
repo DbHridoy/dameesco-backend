@@ -5,6 +5,7 @@ import { ensureValidObjectId } from '@/utils/sanitizeQuery';
 import * as songService from './song.service';
 import * as searchAnalyticsService from '@/modules/analytics/search-analytics.service';
 import {
+  BulkSongStatusInput,
   CreateSongInput,
   ListSongsQueryInput,
   PublishSongInput,
@@ -146,6 +147,14 @@ export const publishSong = asyncHandler(async (req, res: Response) => {
     status === 'published' ? 'PUBLISHED' : 'ARCHIVED',
   );
   res.status(200).json(new ApiResponse(`Song ${status}`, { song }));
+});
+
+export const bulkUpdateStatus = asyncHandler(async (req, res: Response) => {
+  const payload = req.body as BulkSongStatusInput;
+  const result = await songService.bulkSetStatus(payload);
+  res
+    .status(200)
+    .json(new ApiResponse('Track statuses updated', { result }));
 });
 
 export const archiveSong = asyncHandler(async (req, res: Response) => {

@@ -75,7 +75,20 @@ export const publishSongSchema = z.object({
   status: z.enum([SONG_STATUS.PUBLISHED, SONG_STATUS.ARCHIVED]),
 });
 
+export const bulkSongStatusSchema = z.object({
+  songIds: z
+    .array(objectIdSchema)
+    .min(1, 'Select at least one track')
+    .max(500, 'A maximum of 500 tracks can be updated at once')
+    .refine(
+      (songIds) => new Set(songIds).size === songIds.length,
+      'Duplicate track ids are not allowed',
+    ),
+  status: z.enum([SONG_STATUS.PUBLISHED, SONG_STATUS.DRAFT]),
+});
+
 export type CreateSongInput = z.infer<typeof createSongSchema>;
 export type UpdateSongInput = z.infer<typeof updateSongSchema>;
 export type ListSongsQueryInput = z.infer<typeof listSongsQuerySchema>;
 export type PublishSongInput = z.infer<typeof publishSongSchema>;
+export type BulkSongStatusInput = z.infer<typeof bulkSongStatusSchema>;

@@ -7,6 +7,7 @@ import { USER_ROLES } from '@/constants/roles';
 import * as songController from './song.controller';
 import bulkImportRoutes from '@/modules/bulk-import/bulk-import.routes';
 import {
+  bulkSongStatusSchema,
   createSongSchema,
   idOrSlugParamSchema,
   listSongsQuerySchema,
@@ -57,6 +58,14 @@ router.post(
   authorizeRoles(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
   validate(createSongSchema),
   songController.createSong,
+);
+
+router.patch(
+  '/bulk-status',
+  authenticate,
+  authorizeRoles(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
+  validate(bulkSongStatusSchema),
+  songController.bulkUpdateStatus,
 );
 
 router.patch(

@@ -27,6 +27,7 @@ import {
 } from '@/audio/audio-watermark.service';
 import { extractAudioMetadata } from '@/audio/audio-metadata.service';
 import {
+  BulkSongStatusInput,
   CreateSongInput,
   ListSongsQueryInput,
   UpdateSongInput,
@@ -482,6 +483,29 @@ export const setStatus = async (
   song.status = SONG_STATUS[status];
   await song.save();
   return song;
+};
+
+export const bulkSetStatus = async (
+  payload: BulkSongStatusInput,
+): Promise<{
+  requested: number;
+  matched: number;
+  modified: number;
+  missing: number;
+  status: BulkSongStatusInput['status'];
+}> => {
+  const result = await Song.updateMany(
+    { _id: { $in: payload.songIds } },
+    { $set: { status: payload.status } },
+  );
+
+  return {
+    requested: payload.songIds.length,
+    matched: result.matchedCount,
+    modified: result.modifiedCount,
+    missing: payload.songIds.length - result.matchedCount,
+    status: payload.status,
+  };
 };
 
 export const uploadCoverImage = async (
