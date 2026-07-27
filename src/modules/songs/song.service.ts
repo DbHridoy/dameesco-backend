@@ -362,14 +362,23 @@ const applySongFilters = (
 ): void => {
   if (query.search) {
     const s = String(query.search).trim();
-    filter.$or = [
-      { title: { $regex: s, $options: 'i' } },
-      { artist: { $regex: s, $options: 'i' } },
-      { album: { $regex: s, $options: 'i' } },
-      { genre: { $regex: s, $options: 'i' } },
-      { mood: { $regex: s, $options: 'i' } },
-      { tags: { $regex: s, $options: 'i' } },
+    const escaped = s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const searchConditions: FilterQuery<SongDocument>[] = [
+      { title: { $regex: escaped, $options: 'i' } },
+      { artist: { $regex: escaped, $options: 'i' } },
+      { album: { $regex: escaped, $options: 'i' } },
+      { description: { $regex: escaped, $options: 'i' } },
+      { genre: { $regex: escaped, $options: 'i' } },
+      { mood: { $regex: escaped, $options: 'i' } },
+      { tags: { $regex: escaped, $options: 'i' } },
+      { key: { $regex: escaped, $options: 'i' } },
+      { language: { $regex: escaped, $options: 'i' } },
     ];
+    const numericSearch = Number(s);
+    if (Number.isFinite(numericSearch)) {
+      searchConditions.push({ bpm: numericSearch });
+    }
+    filter.$or = searchConditions;
   }
   if (query.genre) filter.genre = query.genre;
   if (query.mood) filter.mood = query.mood;
