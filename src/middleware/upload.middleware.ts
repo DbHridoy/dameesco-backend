@@ -104,6 +104,27 @@ const videoFileFilter = (
   }
 };
 
+const bulkImportFileFilter = (
+  _req: Request,
+  file: Express.Multer.File,
+  cb: FileFilterCallback,
+): void => {
+  const allowedExt = /\.(zip|xlsx|csv)$/i;
+  const allowedMime = [
+    'application/zip',
+    'application/x-zip-compressed',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'text/csv',
+    'application/csv',
+    'application/vnd.ms-excel',
+  ];
+  if (allowedMime.includes(file.mimetype) || allowedExt.test(file.originalname)) {
+    cb(null, true);
+  } else {
+    cb(new ApiError(400, 'Only ZIP, XLSX, or CSV files are allowed'));
+  }
+};
+
 export const uploadAudio = multer({
   storage,
   fileFilter: audioFileFilter,
@@ -126,4 +147,10 @@ export const uploadVideo = multer({
   storage,
   fileFilter: videoFileFilter,
   limits: { fileSize: 500 * 1024 * 1024 }, // 500MB
+});
+
+export const uploadBulkImport = multer({
+  storage,
+  fileFilter: bulkImportFileFilter,
+  limits: { fileSize: 1024 * 1024 * 1024 }, // 1GB
 });

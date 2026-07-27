@@ -106,8 +106,27 @@ songSchema.index({
   genre: 'text',
   mood: 'text',
   tags: 'text',
+}, {
+  default_language: 'none',
+  language_override: 'textSearchLanguage',
 });
 
 const Song = mongoose.model<SongDocument>('Song', songSchema);
+
+export const ensureSongTextIndex = async (): Promise<void> => {
+  const indexes = await Song.collection.indexes();
+  const textIndex = indexes.find((index) =>
+    Object.values(index.key ?? {}).includes('text'),
+  );
+
+  if (
+    textIndex?.name &&
+    textIndex.language_override !== 'textSearchLanguage'
+  ) {
+    await Song.collection.dropIndex(textIndex.name);
+  }
+
+  await Song.createIndexes();
+};
 
 export default Song;

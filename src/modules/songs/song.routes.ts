@@ -5,6 +5,7 @@ import { validate } from '@/middleware/validate.middleware';
 import { uploadAudio, uploadImage } from '@/middleware/upload.middleware';
 import { USER_ROLES } from '@/constants/roles';
 import * as songController from './song.controller';
+import bulkImportRoutes from '@/modules/bulk-import/bulk-import.routes';
 import {
   createSongSchema,
   idOrSlugParamSchema,
@@ -34,6 +35,8 @@ router.get(
   validate(listSongsQuerySchema, 'query'),
   songController.searchSongs,
 );
+
+router.use('/bulk-import', bulkImportRoutes);
 
 router.get(
   '/:id/preview-url',

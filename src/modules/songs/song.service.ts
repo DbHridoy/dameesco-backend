@@ -531,6 +531,7 @@ export const uploadCoverImage = async (
 export const uploadAndProcessAudio = async (
   songId: string,
   file: Express.Multer.File,
+  options: { triggerCyanite?: boolean } = {},
 ): Promise<SongDocument> => {
   ensureValidObjectId(songId, 'songId');
   const song = await Song.findById(songId);
@@ -614,16 +615,18 @@ export const uploadAndProcessAudio = async (
       fileType: file.mimetype,
     };
 
-    try {
-      cyaniteSubmission = await submitLocalAudioToCyanite({
-        song,
-        inputPath: tmpInput,
-        duration,
-      });
-    } catch (error) {
-      cyaniteError =
-        error instanceof Error ? error.message : 'Cyanite submission failed';
-      logger.warn({ error: cyaniteError, songId }, 'Cyanite auto tagging submission failed');
+    if (options.triggerCyanite !== false) {
+      try {
+        cyaniteSubmission = await submitLocalAudioToCyanite({
+          song,
+          inputPath: tmpInput,
+          duration,
+        });
+      } catch (error) {
+        cyaniteError =
+          error instanceof Error ? error.message : 'Cyanite submission failed';
+        logger.warn({ error: cyaniteError, songId }, 'Cyanite auto tagging submission failed');
+      }
     }
   } catch (error) {
     logger.error(
