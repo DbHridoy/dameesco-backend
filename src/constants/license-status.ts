@@ -22,6 +22,8 @@ export const NOTIFICATION_TYPE = {
   LICENSE_UPDATED: 'license_updated',
   ACCESS_SUBMITTED: 'access_submitted',
   ACCESS_UPDATED: 'access_updated',
+  SHORTLIST_INVITATION: 'shortlist_invitation',
+  SHORTLIST_COMMENT: 'shortlist_comment',
   SYSTEM: 'system',
 } as const;
 

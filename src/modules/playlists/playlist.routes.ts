@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticate, optionalAuthenticate } from '@/middleware/auth.middleware';
+import { authenticate, optionalAuthenticate, requireAdmin } from '@/middleware/auth.middleware';
 import { uploadImage } from '@/middleware/upload.middleware';
 import { validate } from '@/middleware/validate.middleware';
 import * as playlistController from './playlist.controller';
@@ -20,7 +20,7 @@ router.post(
   playlistController.recordPublicPlaylistView,
 );
 
-router.use(authenticate);
+router.use(authenticate, requireAdmin);
 
 router.post('/', validate(createPlaylistSchema), playlistController.createPlaylist);
 router.get('/my', playlistController.listMyPlaylists);

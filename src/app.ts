@@ -13,11 +13,18 @@ import routes from '@/routes';
 
 const app: Application = express();
 
+const corsOrigins =
+  env.CORS_ORIGINS.trim() === '*'
+    ? true
+    : env.CORS_ORIGINS.split(',')
+        .map((origin) => origin.trim())
+        .filter(Boolean);
+
 // Security & utility middleware
 app.use(helmet());
 app.use(
   cors({
-    origin: env.CLIENT_URL === '*' ? true : env.CLIENT_URL.split(','),
+    origin: corsOrigins,
     credentials: true,
   }),
 );

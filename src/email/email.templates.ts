@@ -48,6 +48,14 @@ export interface AccessRequestDecisionEmail extends BaseEmail {
   adminNote?: string;
 }
 
+export interface ShortlistInvitationEmail extends BaseEmail {
+  inviterName: string;
+  shortlistName: string;
+  role: 'viewer' | 'editor';
+  inviteUrl: string;
+  expiryDays: number;
+}
+
 const layout = (title: string, body: string): string => {
   return `
 <!doctype html>
@@ -154,6 +162,37 @@ export const accessRequestDecisionTemplate = (
         ? '<p>You now have paid access. Enjoy the music!</p>'
         : ''
     }
+  `,
+  );
+};
+
+const escapeHtml = (value: string): string =>
+  value.replace(
+    /[&<>"']/g,
+    (character) =>
+      ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;',
+      })[character]!,
+  );
+
+export const shortlistInvitationTemplate = (
+  data: ShortlistInvitationEmail,
+): string => {
+  const inviterName = escapeHtml(data.inviterName);
+  const shortlistName = escapeHtml(data.shortlistName);
+  const inviteUrl = escapeHtml(data.inviteUrl);
+  return layout(
+    'You have been invited to a shortlist',
+    `
+    <p><strong>${inviterName}</strong> invited you to collaborate on <strong>${shortlistName}</strong> as a ${data.role}.</p>
+    <p style="margin:28px 0;">
+      <a href="${inviteUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 18px;border-radius:6px;text-decoration:none;">View invitation</a>
+    </p>
+    <p>This invitation expires in ${data.expiryDays} days and is tied to this email address.</p>
   `,
   );
 };

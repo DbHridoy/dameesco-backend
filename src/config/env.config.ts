@@ -15,6 +15,23 @@ const optional = (key: string, fallback: string = ''): string => {
   return process.env[key] ?? fallback;
 };
 
+const publicUrl = (key: string, fallback: string): string => {
+  const value = optional(key, fallback).replace(/\/+$/, '');
+
+  try {
+    const url = new URL(value);
+    if (!['http:', 'https:'].includes(url.protocol) || url.hostname === '*') {
+      throw new Error();
+    }
+  } catch {
+    throw new Error(
+      `Invalid ${key}: expected an absolute HTTP(S) URL, for example https://app.example.com`,
+    );
+  }
+
+  return value;
+};
+
 const env = {
   PORT: parseInt(optional('PORT', '5000'), 10),
   NODE_ENV: optional('NODE_ENV', 'development'),
@@ -33,7 +50,8 @@ const env = {
   JWT_REFRESH_EXPIRES_IN: optional('JWT_REFRESH_EXPIRES_IN', '7d'),
   BCRYPT_SALT_ROUNDS: parseInt(optional('BCRYPT_SALT_ROUNDS', '10'), 10),
 
-  CLIENT_URL: optional('CLIENT_URL', 'http://localhost:3000'),
+  FRONTEND_URL: publicUrl('FRONTEND_URL', 'http://localhost:3000'),
+  CORS_ORIGINS: optional('CORS_ORIGINS', 'http://localhost:3000'),
 
   ADMIN_EMAIL: optional('ADMIN_EMAIL', 'admin@dameesco.com'),
   ADMIN_PASSWORD: optional('ADMIN_PASSWORD', 'ChangeMe123!'),

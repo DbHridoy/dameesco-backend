@@ -13,6 +13,8 @@ import {
   LicenseStatusEmail,
   AccessRequestSubmittedEmail,
   AccessRequestDecisionEmail,
+  shortlistInvitationTemplate,
+  ShortlistInvitationEmail,
 } from './email.templates';
 
 const RESEND_API_URL = 'https://api.resend.com/emails';
@@ -97,4 +99,10 @@ export const sendAccessRequestDecisionEmail = async (
   data: AccessRequestDecisionEmail,
 ): Promise<void> => {
   await send(data.to, data.subject, accessRequestDecisionTemplate(data));
+};
+
+export const sendShortlistInvitationEmail = async (
+  data: ShortlistInvitationEmail,
+): Promise<void> => {
+  await send(data.to, data.subject, shortlistInvitationTemplate(data));
 };
